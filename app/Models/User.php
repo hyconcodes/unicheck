@@ -25,6 +25,7 @@ class User extends Authenticatable
         'email',
         'password',
         'matric_no',
+        'avatar',
     ];
 
     /**
@@ -60,5 +61,25 @@ class User extends Authenticatable
             ->take(2)
             ->map(fn ($word) => Str::substr($word, 0, 1))
             ->implode('');
+    }
+
+    /**
+     * Generate a random 3D avatar URL
+     */
+    public static function generateRandomAvatar(): string
+    {
+        $styles = ['adventurer', 'avataaars', 'big-ears', 'big-smile', 'croodles', 'fun-emoji', 'icons', 'identicon', 'initials', 'lorelei', 'micah', 'miniavs', 'open-peeps', 'personas', 'pixel-art', 'shapes', 'thumbs'];
+        $style = $styles[array_rand($styles)];
+        $seed = Str::random(10);
+        
+        return "https://api.dicebear.com/7.x/{$style}/svg?seed={$seed}&size=200";
+    }
+
+    /**
+     * Get the user's avatar URL
+     */
+    public function getAvatarUrl(): string
+    {
+        return $this->avatar ?? $this->generateRandomAvatar();
     }
 }

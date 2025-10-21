@@ -14,7 +14,6 @@ new #[Layout('components.layouts.auth')] class extends Component {
     public string $email = '';
     public string $password = '';
     public string $password_confirmation = '';
-    public string $matric_no = '';
 
     /**
      * Handle an incoming registration request.
@@ -25,12 +24,18 @@ new #[Layout('components.layouts.auth')] class extends Component {
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class, 'regex:/^[a-zA-Z]+\.[0-9]+@bouesti\.edu\.ng$/'],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
-            'matric_no' => ['required', 'string', 'max:20', 'unique:' . User::class],
         ], [
             'email.regex' => 'Email must be in the format: lastname.matric_no@bouesti.edu.ng',
         ]);
 
+        // Extract matric_no from email (number after the lastname)
+        preg_match('/\.([0-9]+)@/', $validated['email'], $matches);
+        $validated['matric_no'] = $matches[1] ?? '';
+
         $validated['password'] = Hash::make($validated['password']);
+        
+        // Generate random 3D avatar
+        $validated['avatar'] = User::generateRandomAvatar();
 
         $user = User::create($validated);
         
@@ -74,16 +79,6 @@ new #[Layout('components.layouts.auth')] class extends Component {
             required
             autocomplete="email"
             placeholder="lastname.matricno@bouesti.edu.ng"
-        />
-
-        <!-- Matriculation Number -->
-        <flux:input
-            wire:model="matric_no"
-            :label="__('Matriculation Number')"
-            type="text"
-            required
-            autocomplete="matric-no"
-            :placeholder="__('Enter your matriculation number')"
         />
 
         <!-- Password -->

@@ -18,6 +18,7 @@ class RolePermissionSeeder extends Seeder
     {
         // Create permissions
         $permissions = [
+            // Role and User Management
             'can.view.roles',
             'can.create.roles',
             'can.edit.roles',
@@ -26,10 +27,24 @@ class RolePermissionSeeder extends Seeder
             'can.view.users',
             'can.manage.students',
             'can.manage.lecturers',
+            
+            // Dashboard Access
             'can.view.dashboard',
             'can.access.superadmin',
             'can.access.student.dashboard',
             'can.access.lecturer.dashboard',
+            
+            // Location Management
+            'can.view.locations',
+            'can.create.locations',
+            'can.edit.locations',
+            'can.delete.locations',
+            'can.manage.locations',
+            'can.capture.locations',
+            
+            // System Administration
+            'can.access.admin.panel',
+            'can.manage.system.settings',
         ];
 
         foreach ($permissions as $permission) {
@@ -48,6 +63,7 @@ class RolePermissionSeeder extends Seeder
         $studentRole->givePermissionTo([
             'can.view.dashboard',
             'can.access.student.dashboard',
+            'can.view.locations',
         ]);
 
         // Assign specific permissions to lecturer
@@ -55,6 +71,12 @@ class RolePermissionSeeder extends Seeder
             'can.view.dashboard',
             'can.access.lecturer.dashboard',
             'can.manage.students',
+            'can.view.locations',
+            'can.create.locations',
+            'can.edit.locations',
+            'can.delete.locations',
+            'can.capture.locations',
+            'can.manage.locations',
         ]);
 
         // Create a default superadmin user

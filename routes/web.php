@@ -29,6 +29,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['role:superadmin'])->group(function () {
         Volt::route('superadmin/dashboard', 'dashboard.superadmin')->name('superadmin.dashboard');
         Volt::route('superadmin/roles-permissions', 'admin.role-permission-manager')->name('admin.role-permission-manager');
+        Volt::route('superadmin/account-manager', 'admin.account-manager')->name('superadmin.account-manager');
+        Volt::route('superadmin/location-manager', 'admin.location-manager')
+            ->middleware('permission:can.manage.locations')
+            ->name('superadmin.location-manager');
+        // For superadmin to view profile
+        Volt::route('student/profile/{user}', 'profiles.student')->name('student.profile');
+        Volt::route('lecturer/profile/{user}', 'profiles.lecturer')->name('lecturer.profile');
     });
 
     Route::middleware(['role:lecturer'])->group(function () {

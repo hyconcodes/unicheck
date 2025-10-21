@@ -22,6 +22,13 @@
                 <flux:navlist.item icon="key" :href="route('admin.role-permission-manager')" :current="request()->routeIs('admin.role-permission-manager')"
                     wire:navigate>{{ __('Roles') }}</flux:navlist.item>
                 @endcan
+                
+                @role('superadmin')
+                <flux:navlist.item icon="users" :href="route('superadmin.account-manager')" :current="request()->routeIs('superadmin.account-manager')"
+                    wire:navigate>{{ __('Account Management') }}</flux:navlist.item>
+                <flux:navlist.item icon="map-pin" :href="route('superadmin.location-manager')" :current="request()->routeIs('superadmin.location-manager')"
+                    wire:navigate>{{ __('Location Manager') }}</flux:navlist.item>
+                @endrole
             </flux:navlist.group>
 
         </flux:navlist>
@@ -45,19 +52,20 @@
 
         <!-- Desktop User Menu -->
         <flux:dropdown class="hidden lg:block" position="bottom" align="start">
-            <flux:profile :name="auth()->user()->name" :initials="auth()->user()->initials()"
-                icon:trailing="chevrons-up-down" data-test="sidebar-menu-button" />
+            <div class="flex items-center gap-2 p-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg" data-test="sidebar-menu-button">
+                <img src="{{ auth()->user()->getAvatarUrl() }}" alt="{{ auth()->user()->name }}" class="h-8 w-8 rounded-lg">
+                <div class="flex-1 text-start">
+                    <div class="font-semibold text-sm">{{ auth()->user()->name }}</div>
+                    <div class="text-xs text-zinc-500">{{ auth()->user()->email }}</div>
+                </div>
+                <flux:icon name="chevrons-up-down" class="h-4 w-4 text-zinc-400" />
+            </div>
 
             <flux:menu class="w-[220px]">
                 <flux:menu.radio.group>
                     <div class="p-0 text-sm font-normal">
                         <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-                            <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
-                                <span
-                                    class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                                    {{ auth()->user()->initials() }}
-                                </span>
-                            </span>
+                            <img src="{{ auth()->user()->getAvatarUrl() }}" alt="{{ auth()->user()->name }}" class="h-8 w-8 rounded-lg">
 
                             <div class="grid flex-1 text-start text-sm leading-tight">
                                 <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
@@ -94,18 +102,16 @@
         <flux:spacer />
 
         <flux:dropdown position="top" align="end">
-            <flux:profile :initials="auth()->user()->initials()" icon-trailing="chevron-down" />
+            <div class="flex items-center gap-2 p-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
+                <img src="{{ auth()->user()->getAvatarUrl() }}" alt="{{ auth()->user()->name }}" class="h-8 w-8 rounded-lg">
+                <flux:icon name="chevron-down" class="h-4 w-4 text-zinc-400" />
+            </div>
 
             <flux:menu>
                 <flux:menu.radio.group>
                     <div class="p-0 text-sm font-normal">
                         <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-                            <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
-                                <span
-                                    class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                                    {{ auth()->user()->initials() }}
-                                </span>
-                            </span>
+                            <img src="{{ auth()->user()->getAvatarUrl() }}" alt="{{ auth()->user()->name }}" class="h-8 w-8 rounded-lg">
 
                             <div class="grid flex-1 text-start text-sm leading-tight">
                                 <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
@@ -136,6 +142,9 @@
     </flux:header>
 
     {{ $slot }}
+
+    <!-- Global Toast Notification -->
+    <x-toast-notification />
 
     @fluxScripts
 </body>

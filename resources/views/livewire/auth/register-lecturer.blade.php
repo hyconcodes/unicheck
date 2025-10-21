@@ -29,6 +29,9 @@ new #[Layout('components.layouts.auth')] class extends Component {
         ]);
 
         $validated['password'] = Hash::make($validated['password']);
+        
+        // Generate random 3D avatar
+        $validated['avatar'] = User::generateRandomAvatar();
 
         $user = User::create($validated);
         

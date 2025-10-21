@@ -9,14 +9,14 @@ new #[Layout('components.layouts.app')] class extends Component {
 
 <div class="py-12">
     <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-            <div class="p-6 text-gray-900 dark:text-gray-100">
+        <div class="bg-white dark:bg-zinc-800 overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="p-6 text-zinc-900 dark:text-zinc-100">
                 <!-- Welcome Header -->
                 <div class="mb-8">
                     <h1 class="text-3xl font-bold text-green-700 dark:text-green-400">
                         Welcome, {{ auth()->user()->name }}!
                     </h1>
-                    <p class="text-gray-600 dark:text-gray-400 mt-2">
+                    <p class="text-zinc-600 dark:text-zinc-400 mt-2">
                         Lecturer Dashboard - Teaching & Course Management
                     </p>
                 </div>
@@ -87,22 +87,22 @@ new #[Layout('components.layouts.app')] class extends Component {
                 <!-- Recent Activities -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                     <!-- Course Management -->
-                    <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg">
-                        <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Course Management</h2>
+                    <div class="bg-zinc-50 dark:bg-zinc-700 p-6 rounded-lg">
+                        <h2 class="text-xl font-semibold text-zinc-800 dark:text-zinc-200 mb-4">Course Management</h2>
                         <div class="space-y-3">
-                            <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-600 rounded-lg">
+                            <div class="flex items-center justify-between p-3 bg-white dark:bg-zinc-600 rounded-lg">
                                 <div>
-                                    <p class="font-medium text-gray-800 dark:text-gray-200">Computer Science 101</p>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400">45 students enrolled</p>
+                                    <p class="font-medium text-zinc-800 dark:text-zinc-200">Computer Science 101</p>
+                                    <p class="text-sm text-zinc-600 dark:text-zinc-400">45 students enrolled</p>
                                 </div>
                                 <flux:button size="sm" variant="outline" class="border-green-500 text-green-600">
                                     Manage
                                 </flux:button>
                             </div>
-                            <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-600 rounded-lg">
+                            <div class="flex items-center justify-between p-3 bg-white dark:bg-zinc-600 rounded-lg">
                                 <div>
-                                    <p class="font-medium text-gray-800 dark:text-gray-200">Data Structures</p>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400">38 students enrolled</p>
+                                    <p class="font-medium text-zinc-800 dark:text-zinc-200">Data Structures</p>
+                                    <p class="text-sm text-zinc-600 dark:text-zinc-400">38 students enrolled</p>
                                 </div>
                                 <flux:button size="sm" variant="outline" class="border-green-500 text-green-600">
                                     Manage
@@ -112,8 +112,8 @@ new #[Layout('components.layouts.app')] class extends Component {
                     </div>
 
                     <!-- Quick Actions -->
-                    <div class="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg">
-                        <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Quick Actions</h2>
+                    <div class="bg-zinc-50 dark:bg-zinc-700 p-6 rounded-lg">
+                        <h2 class="text-xl font-semibold text-zinc-800 dark:text-zinc-200 mb-4">Quick Actions</h2>
                         <div class="grid grid-cols-1 gap-3">
                             <flux:button variant="primary" class="bg-green-600 hover:bg-green-700 text-white">
                                 Create New Assignment
