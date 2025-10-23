@@ -5,6 +5,7 @@ use Livewire\Attributes\Layout;
 use App\Models\ClassModel;
 use App\Models\ClassAttendance;
 use Illuminate\Support\Facades\Auth;
+use App\Services\AttendanceLogService;
 
 new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class extends Component {
     
@@ -18,6 +19,27 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
     public bool $isSubmitting = false;
     public ?float $distance = null;
     public bool $withinRadius = false;
+    
+    // Toast notification properties
+    public bool $showToast = false;
+    public string $toastMessage = '';
+    public string $toastType = 'success';
+    
+    public function showToast(string $message, string $type = 'success'): void
+    {
+        $this->toastMessage = $message;
+        $this->toastType = $type;
+        $this->showToast = true;
+        
+        // Auto-hide toast after 5 seconds
+        $this->dispatch('hide-toast-after-delay');
+    }
+    
+    public function hideToast(): void
+    {
+        $this->showToast = false;
+        $this->toastMessage = '';
+    }
     
     public function mount($classId): void
     {
@@ -38,10 +60,16 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
             $this->redirect(route('student.classes'));
         }
         
-        // Pre-fill user data
+        // Security check: Ensure user can only mark their own attendance
         $user = Auth::user();
+        if (!$user) {
+            session()->flash('error', 'Authentication required. Please log in.');
+            $this->redirect(route('login'));
+        }
+        
+        // Pre-fill user data
         $this->fullName = $user->name;
-        $this->matricNumber = $user->matric_number ?? '';
+        $this->matricNumber = $user->matric_no ?? '';
     }
     
     public function captureLocation(): void
@@ -57,7 +85,12 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
         $this->locationError = '';
         
         // Calculate distance from class location
-        $this->distance = $this->class->calculateDistance($latitude, $longitude);
+        $this->distance = $this->class->calculateDistance(
+            $this->class->latitude,
+            $this->class->longitude,
+            $latitude,
+            $longitude
+        );
         $this->withinRadius = $this->class->isWithinRadius($latitude, $longitude);
         
         if (!$this->withinRadius) {
@@ -83,6 +116,20 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
     
     public function markAttendance(): void
     {
+        // Security check: Prevent marking attendance for other students
+        $user = Auth::user();
+        if (!$user || $user->name !== $this->fullName || $user->matric_no !== $this->matricNumber) {
+            AttendanceLogService::logSecurityViolation('attempted_identity_fraud', [
+                'attempted_name' => $this->fullName,
+                'attempted_matric' => $this->matricNumber,
+                'actual_name' => $user?->name,
+                'actual_matric' => $user?->matric_no
+            ]);
+            
+            $this->showToast('🚨 Hold up! You can only mark your own attendance! 👮', 'error');
+            return;
+        }
+        
         $this->validate([
             'fullName' => 'required|string|max:255',
             'matricNumber' => 'required|string|max:50',
@@ -91,27 +138,57 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
         ]);
         
         if (!$this->withinRadius) {
-            session()->flash('error', 'You must be within the class radius to mark attendance.');
+            AttendanceLogService::logError('location_outside_radius', $this->class, [
+                'user_latitude' => $this->latitude,
+                'user_longitude' => $this->longitude,
+                'class_latitude' => $this->class->latitude,
+                'class_longitude' => $this->class->longitude,
+                'required_radius' => $this->class->radius,
+                'calculated_distance' => $this->distance
+            ]);
+            
+            $this->showToast('📍 You must be within the class radius to mark attendance! 🎯', 'error');
             return;
         }
         
+        $this->submitAttendance();
+    }
+    
+    private function submitAttendance(): void
+    {
         $this->isSubmitting = true;
         
         try {
             ClassAttendance::markAttendance(
-                $this->class->id,
-                Auth::id(),
+                $this->class,
+                Auth::user(),
                 $this->fullName,
                 $this->matricNumber,
                 $this->latitude,
                 $this->longitude
             );
             
-            session()->flash('success', 'Attendance marked successfully!');
-            $this->redirect(route('student.classes'));
+            AttendanceLogService::logSuccess($this->class, [
+                'latitude' => $this->latitude,
+                'longitude' => $this->longitude,
+                'distance_from_class' => $this->distance,
+                'within_radius' => $this->withinRadius
+            ]);
+            
+            $this->showToast('🎯 Boom! Attendance marked like a boss! 💪', 'success');
+            
+            // Redirect after a short delay to show the toast
+            $this->js('setTimeout(() => { window.location.href = "' . route('student.classes') . '"; }, 2000);');
             
         } catch (\Exception $e) {
-            session()->flash('error', $e->getMessage());
+            AttendanceLogService::logError('attendance_submission_failed', $this->class, [
+                'exception_message' => $e->getMessage(),
+                'exception_code' => $e->getCode(),
+                'latitude' => $this->latitude,
+                'longitude' => $this->longitude
+            ]);
+            
+            $this->showToast('🤔 Oops! Something went wonky with your attendance! 🙈', 'error');
         } finally {
             $this->isSubmitting = false;
         }
@@ -124,6 +201,53 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
 }; ?>
 
 <main>
+<!-- Inline Toast Notification -->
+@if($showToast)
+<div 
+    x-data="{ show: @entangle('showToast') }"
+    x-show="show"
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="opacity-0 transform translate-y-2"
+    x-transition:enter-end="opacity-100 transform translate-y-0"
+    x-transition:leave="transition ease-in duration-200"
+    x-transition:leave-start="opacity-100 transform translate-y-0"
+    x-transition:leave-end="opacity-0 transform translate-y-2"
+    class="fixed top-4 right-4 z-50 max-w-sm w-full"
+>
+    <div class="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg p-4 flex items-start gap-3
+        @if($toastType === 'success') border-l-4 border-l-green-500 @endif
+        @if($toastType === 'error') border-l-4 border-l-red-500 @endif
+        @if($toastType === 'warning') border-l-4 border-l-yellow-500 @endif
+        @if($toastType === 'info') border-l-4 border-l-blue-500 @endif
+    ">
+        <div class="flex-shrink-0">
+            @if($toastType === 'success')
+                <div class="text-green-500 text-xl">✅</div>
+            @elseif($toastType === 'error')
+                <div class="text-red-500 text-xl">❌</div>
+            @elseif($toastType === 'warning')
+                <div class="text-yellow-500 text-xl">⚠️</div>
+            @else
+                <div class="text-blue-500 text-xl">ℹ️</div>
+            @endif
+        </div>
+        <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                {{ $toastMessage }}
+            </p>
+        </div>
+        <button 
+            wire:click="hideToast"
+            class="flex-shrink-0 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+        >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+    </div>
+</div>
+@endif
+
 <div class="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
     <!-- Header -->
     <div class="mb-6 sm:mb-8">

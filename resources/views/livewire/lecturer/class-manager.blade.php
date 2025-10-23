@@ -29,6 +29,13 @@ new #[Layout('components.layouts.app', ['title' => 'Class Manager'])] class exte
     public ?int $classToToggle = null;
     public string $toggleAction = '';
     
+    // Manual attendance properties
+    public bool $showManualAttendance = false;
+    public ?int $selectedClassId = null;
+    public string $studentMatricNumber = '';
+    public array $classStudents = [];
+    public array $classAttendances = [];
+    
     // Available levels
     public array $levels = ['100', '200', '300', '400', '500'];
     
@@ -231,6 +238,118 @@ new #[Layout('components.layouts.app', ['title' => 'Class Manager'])] class exte
         }, $filename, [
             'Content-Type' => 'application/pdf',
         ]);
+    }
+    
+    /**
+     * Redirect to manual attendance page
+     */
+    public function showManualAttendanceModal($classId)
+    {
+        $class = ClassModel::find($classId);
+        if (!$class || $class->lecturer_id !== Auth::id()) {
+            $this->dispatch('show-toast', message: 'Class not found or unauthorized.', type: 'error');
+            return;
+        }
+        
+        return redirect()->route('lecturer.manual-attendance', ['class' => $classId]);
+    }
+    
+    /**
+     * Mark attendance manually by matric number
+     */
+    public function markAttendanceManually()
+    {
+        $this->validate([
+            'studentMatricNumber' => 'required|string',
+        ]);
+        
+        $class = ClassModel::find($this->selectedClassId);
+        if (!$class || $class->lecturer_id !== Auth::id()) {
+            $this->dispatch('show-toast', message: 'Class not found or unauthorized.', type: 'error');
+            return;
+        }
+        
+        // Find student by matric number
+        $student = User::role('student')
+            ->where('matric_no', $this->studentMatricNumber)
+            ->where('department_id', $class->department_id)
+            ->where('level', $class->level)
+            ->first();
+        
+        if (!$student) {
+            $this->dispatch('show-toast', message: 'Student not found in this class.', type: 'error');
+            return;
+        }
+        
+        // Check if already marked
+        $existingAttendance = $class->attendances()->where('student_id', $student->id)->first();
+        if ($existingAttendance) {
+            $this->dispatch('show-toast', message: 'Student attendance already marked.', type: 'warning');
+            return;
+        }
+        
+        // Mark attendance
+        $class->attendances()->create([
+            'student_id' => $student->id,
+            'marked_at' => now(),
+            'marked_by_lecturer' => true,
+        ]);
+        
+        $this->dispatch('show-toast', message: "Attendance marked for {$student->name}.", type: 'success');
+        
+        // Refresh the attendance list
+        $this->classAttendances = $class->attendances()
+            ->with('student')
+            ->orderBy('marked_at', 'desc')
+            ->get()
+            ->toArray();
+        
+        $this->studentMatricNumber = '';
+    }
+    
+    /**
+     * Remove student attendance
+     */
+    public function removeAttendance($attendanceId)
+    {
+        $attendance = \App\Models\ClassAttendance::with(['student', 'class'])->find($attendanceId);
+        
+        if (!$attendance || $attendance->class->lecturer_id !== Auth::id()) {
+            $this->dispatch('show-toast', message: 'Attendance record not found or unauthorized.', type: 'error');
+            return;
+        }
+        
+        $studentName = $attendance->student->name;
+        $attendance->delete();
+        
+        $this->dispatch('show-toast', message: "Attendance removed for {$studentName}.", type: 'success');
+        
+        // Refresh the attendance list
+        $class = ClassModel::find($this->selectedClassId);
+        $this->classAttendances = $class->attendances()
+            ->with('student')
+            ->orderBy('marked_at', 'desc')
+            ->get()
+            ->toArray();
+    }
+    
+    /**
+     * Get time remaining for a class in seconds
+     */
+    public function getTimeRemaining($class): int
+    {
+        if (!$class->ends_at) {
+            return 0;
+        }
+        
+        $now = now();
+        $endsAt = $class->ends_at;
+        
+        if ($now->greaterThan($endsAt)) {
+            return 0;
+        }
+        
+        return $now->diffInSeconds($endsAt);
     }
     
     /**
@@ -440,6 +559,14 @@ new #[Layout('components.layouts.app', ['title' => 'Class Manager'])] class exte
                                     <p>Created: {{ $class->created_at->format('M j, Y g:i A') }}</p>
                                     @if($class->ends_at)
                                         <p>Ends: {{ $class->ends_at->format('M j, Y g:i A') }}</p>
+                                        @if($this->getTimeRemaining($class) > 0 && $class->status === 'active')
+                                            <p class="font-medium text-blue-600 dark:text-blue-400">
+                                                Time Remaining: 
+                                                <span class="countdown-timer" data-end-time="{{ $class->ends_at->timestamp }}">
+                                                    {{ gmdate('H:i:s', $this->getTimeRemaining($class)) }}
+                                                </span>
+                                            </p>
+                                        @endif
                                     @endif
                                     <p>Attendees: {{ $class->total_attendees }}</p>
                                 </div>
@@ -499,6 +626,15 @@ new #[Layout('components.layouts.app', ['title' => 'Class Manager'])] class exte
                                     <flux:icon.document-arrow-down class="size-4" />
                                     Download PDF
                                 </flux:button>
+                                
+                                <flux:button 
+                                    wire:click="showManualAttendanceModal({{ $class->id }})" 
+                                    variant="ghost" 
+                                    size="sm"
+                                >
+                                    <flux:icon.user-plus class="size-4" />
+                                    Manage Attendance
+                                </flux:button>
                             </div>
                         </div>
                     </div>
@@ -541,6 +677,8 @@ new #[Layout('components.layouts.app', ['title' => 'Class Manager'])] class exte
             </div>
         </div>
     </flux:modal>
+
+
 </div>
 
 <script>
@@ -590,5 +728,33 @@ new #[Layout('components.layouts.app', ['title' => 'Class Manager'])] class exte
         Livewire.on('show-toggle-modal', () => {
             $dispatch('modal-open', { name: 'toggle-class-modal' });
         });
+
+        // Countdown timer functionality
+        function updateCountdownTimers() {
+            const timers = document.querySelectorAll('.countdown-timer');
+            
+            timers.forEach(timer => {
+                const endTime = parseInt(timer.getAttribute('data-end-time')) * 1000;
+                const now = new Date().getTime();
+                const timeLeft = endTime - now;
+                
+                if (timeLeft > 0) {
+                    const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                    const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                    
+                    timer.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                } else {
+                    timer.textContent = '00:00:00';
+                    timer.parentElement.innerHTML = '<span class="font-medium text-red-600 dark:text-red-400">Class Ended</span>';
+                }
+            });
+        }
+
+        // Update timers every second
+        setInterval(updateCountdownTimers, 1000);
+        
+        // Initial update
+        updateCountdownTimers();
     });
 </script>

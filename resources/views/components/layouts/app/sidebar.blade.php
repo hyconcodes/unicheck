@@ -32,6 +32,8 @@
                     wire:navigate class="text-sm sm:text-base">{{ __('Department Manager') }}</flux:navlist.item>
                 <flux:navlist.item icon="academic-cap" :href="route('superadmin.level-promotion-manager')" :current="request()->routeIs('superadmin.level-promotion-manager')"
                     wire:navigate class="text-sm sm:text-base">{{ __('Level Promotion') }}</flux:navlist.item>
+                <flux:navlist.item icon="chat-bubble-left-ellipsis" :href="route('superadmin.complaints')" :current="request()->routeIs('superadmin.complaints')"
+                    wire:navigate class="text-sm sm:text-base">{{ __('Manage Complaints') }}</flux:navlist.item>
                 @endrole
 
                 @role('lecturer')
@@ -42,6 +44,8 @@
                 @role('student')
                 <flux:navlist.item icon="academic-cap" :href="route('student.classes')" :current="request()->routeIs('student.classes', 'student.mark-attendance')"
                     wire:navigate class="text-sm sm:text-base">{{ __('My Classes') }}</flux:navlist.item>
+                <flux:navlist.item icon="exclamation-triangle" :href="route('student.complaints')" :current="request()->routeIs('student.complaints')"
+                    wire:navigate class="text-sm sm:text-base">{{ __('My Complaints') }}</flux:navlist.item>
                 @endrole
             </flux:navlist.group>
 
@@ -88,6 +92,7 @@
                 <div class="flex-1 text-start">
                     <div class="font-semibold text-sm">{{ auth()->user()->name }}</div>
                     <div class="text-xs text-zinc-500 truncate">{{ auth()->user()->email }}</div>
+                    <div class="text-xs text-blue-600 dark:text-blue-400 font-medium capitalize">{{ auth()->user()->getRoleNames()->first() ?? 'No Role' }}</div>
                 </div>
                 <flux:icon name="chevrons-up-down" class="h-4 w-4 text-zinc-400" />
             </div>
@@ -101,6 +106,7 @@
                             <div class="grid flex-1 text-start text-sm leading-tight">
                                 <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
                                 <span class="truncate text-xs">{{ auth()->user()->email }}</span>
+                                <span class="truncate text-xs text-blue-600 dark:text-blue-400 font-medium capitalize">{{ auth()->user()->getRoleNames()->first() ?? 'No Role' }}</span>
                             </div>
                         </div>
                     </div>
@@ -147,6 +153,7 @@
                             <div class="grid flex-1 text-start text-sm leading-tight min-w-0">
                                 <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
                                 <span class="truncate text-xs">{{ auth()->user()->email }}</span>
+                                <span class="truncate text-xs text-blue-600 dark:text-blue-400 font-medium capitalize">{{ auth()->user()->getRoleNames()->first() ?? 'No Role' }}</span>
                             </div>
                         </div>
                     </div>

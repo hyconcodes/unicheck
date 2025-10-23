@@ -22,6 +22,7 @@ class ClassAttendance extends Model
         'longitude',
         'distance',
         'marked_at',
+        'marked_by_lecturer',
     ];
 
     /**
@@ -34,6 +35,7 @@ class ClassAttendance extends Model
         'longitude' => 'decimal:8',
         'distance' => 'decimal:2',
         'marked_at' => 'datetime',
+        'marked_by_lecturer' => 'boolean',
     ];
 
     /**

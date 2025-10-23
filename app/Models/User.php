@@ -150,4 +150,29 @@ class User extends Authenticatable
         $this->level = $this->getNextLevel();
         return $this->save();
     }
+
+    /**
+     * Get classes created by this lecturer
+     */
+    public function classes()
+    {
+        return $this->hasMany(ClassModel::class, 'lecturer_id');
+    }
+
+    /**
+     * Get classes attended by this student
+     */
+    public function attendedClasses()
+    {
+        return $this->belongsToMany(ClassModel::class, 'class_attendances', 'user_id', 'class_id')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get complaints submitted by this user
+     */
+    public function complaints()
+    {
+        return $this->hasMany(Complaint::class, 'student_id');
+    }
 }

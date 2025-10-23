@@ -3,35 +3,50 @@
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
 use App\Models\User;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
+use App\Models\ClassModel;
+use App\Models\Complaint;
 
 new #[Layout('components.layouts.app')] class extends Component {
     public function with(): array
     {
+        $totalUsers = User::count();
+        $totalStudents = User::whereHas('roles', function($query) {
+            $query->where('name', 'student');
+        })->count();
+        $totalLecturers = User::whereHas('roles', function($query) {
+            $query->where('name', 'lecturer');
+        })->count();
+        $totalClasses = ClassModel::count();
+        $totalComplaints = Complaint::count();
+        $pendingComplaints = Complaint::where('status', 'pending')->count();
+        
+        $recentUsers = User::latest()->take(5)->get();
+        $recentComplaints = Complaint::with('student')->latest()->take(3)->get();
+
         return [
-            'totalUsers' => User::count(),
-            'totalStudents' => User::role('student')->count(),
-            'totalLecturers' => User::role('lecturer')->count(),
-            'totalRoles' => Role::count(),
-            'totalPermissions' => Permission::count(),
+            'totalUsers' => $totalUsers,
+            'totalStudents' => $totalStudents,
+            'totalLecturers' => $totalLecturers,
+            'totalClasses' => $totalClasses,
+            'totalComplaints' => $totalComplaints,
+            'pendingComplaints' => $pendingComplaints,
+            'recentUsers' => $recentUsers,
+            'recentComplaints' => $recentComplaints,
         ];
     }
 }; ?>
 
-<div class="min-h-screen bg-zinc-100 dark:bg-zinc-900">
-    <div class="max-w-screen-2xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
-        <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-lg">
-            <div class="p-4 sm:p-6 text-zinc-900 dark:text-zinc-100">
-                <!-- Welcome Header -->
-                <div class="mb-6 sm:mb-8">
-                    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-zinc-800 dark:text-white leading-tight">
-                        Welcome, {{ auth()->user()->name }}!
-                    </h1>
-                    <p class="text-zinc-600 dark:text-zinc-400 mt-2 text-sm sm:text-base lg:text-lg">
-                        Super Administrator Dashboard - System Management & Control
-                    </p>
-                </div>
+<div class="min-h-screen bg-zinc-50 dark:bg-zinc-900">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <!-- Welcome Header -->
+        <div class="mb-6 sm:mb-8">
+            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-zinc-900 dark:text-white">
+                Welcome back, {{ auth()->user()->name }}! 👑
+            </h1>
+            <p class="text-zinc-600 dark:text-zinc-400 mt-2 text-sm sm:text-base">
+                Super Admin Dashboard • System Overview
+            </p>
+        </div>
 
                 <!-- System Statistics -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 mb-8 sm:mb-10">
@@ -81,16 +96,16 @@ new #[Layout('components.layouts.app')] class extends Component {
                         </div>
                     </div>
 
-                    <!-- Roles Card -->
+                    <!-- Classes Card -->
                     <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white p-4 sm:p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1">
                         <div class="flex items-center justify-between">
                             <div>
-                                <h3 class="text-base sm:text-lg font-semibold">Roles</h3>
-                                <p class="text-2xl sm:text-3xl font-bold mt-2">{{ $totalRoles }}</p>
+                                <h3 class="text-base sm:text-lg font-semibold">Classes</h3>
+                                <p class="text-2xl sm:text-3xl font-bold mt-2">{{ $totalClasses }}</p>
                             </div>
                             <div class="bg-yellow-700 p-2 sm:p-3 rounded-full bg-opacity-50">
                                 <svg class="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h4a1 1 0 011 1v5m-6 0h6"></path>
                                 </svg>
                             </div>
                         </div>

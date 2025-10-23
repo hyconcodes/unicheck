@@ -270,7 +270,7 @@ new class extends Component {
                                         {{ $student->getNextLevel() }} Level
                                     </span>
                                 @else
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100">
                                         Max Level
                                     </span>
                                 @endif
@@ -341,7 +341,7 @@ new class extends Component {
                                     Next: {{ $student->getNextLevel() }} Level
                                 </span>
                             @else
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100">
                                     Max Level
                                 </span>
                             @endif

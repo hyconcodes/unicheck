@@ -68,11 +68,11 @@ select:focus[data-flux-control] {
 /* Welcome Page Custom Styles */
 @layer components {
     .gradient-bg {
-        background: linear-gradient(135deg, #2563EB 0%, #10B981 100%);
+        background: linear-gradient(135deg, #FFD700 0%, #10B981 100%);
     }
     
     .gradient-text {
-        background: linear-gradient(135deg, #2563EB 0%, #10B981 100%);
+        background: linear-gradient(135deg, #FFD700 0%, #10B981 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -92,7 +92,7 @@ select:focus[data-flux-control] {
     }
     
     .btn-primary {
-        background: linear-gradient(135deg, #2563EB 0%, #10B981 100%);
+        background: linear-gradient(135deg, #FFD700 0%, #10B981 100%);
         transition: all 0.3s ease;
     }
     
@@ -153,11 +153,11 @@ select:focus[data-flux-control] {
     }
     
     ::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, #2563EB 0%, #10B981 100%);
+        background: linear-gradient(135deg, #FFD700 0%, #059669 100%);
         border-radius: 4px;
     }
     
     ::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(135deg, #1d4ed8 0%, #059669 100%);
+        background: linear-gradient(135deg, #FFD700 0%, #059669 100%);
     }
 }

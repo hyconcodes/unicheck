@@ -25,11 +25,11 @@
             }
             
             .gradient-bg {
-                background: linear-gradient(135deg, #2563EB 0%, #10B981 100%);
+                background: linear-gradient(135deg, #FFD700 0%, #10B981 100%);
             }
             
             .gradient-text {
-                background: linear-gradient(135deg, #2563EB 0%, #10B981 100%);
+                background: linear-gradient(135deg, #FFD700 0%, #10B981 100%);
                 -webkit-background-clip: text;
                 -webkit-text-fill-color: transparent;
                 background-clip: text;
@@ -49,7 +49,7 @@
             }
             
             .btn-primary {
-                background: linear-gradient(135deg, #2563EB 0%, #10B981 100%);
+                background: linear-gradient(135deg, #FFD700 0%, #10B981 100%);
                 transition: all 0.3s ease;
             }
             
@@ -165,9 +165,9 @@
                                 <!-- Student with Phone -->
                                 <g transform="translate(170, 120)">
                                     <!-- Phone -->
-                                    <rect x="20" y="10" width="20" height="35" rx="4" fill="#2563EB"/>
+                                    <rect x="20" y="10" width="20" height="35" rx="4" fill="#FFD700"/>
                                     <rect x="22" y="12" width="16" height="25" rx="2" fill="#60A5FA"/>
-                                    <circle cx="30" cy="40" r="2" fill="#2563EB"/>
+                                    <circle cx="30" cy="40" r="2" fill="#FFD700"/>
                                     
                                     <!-- Person -->
                                     <circle cx="15" cy="15" r="8" fill="#F3F4F6"/>

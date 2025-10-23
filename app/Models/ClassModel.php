@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Carbon\Carbon;
 
 class ClassModel extends Model
@@ -156,5 +157,23 @@ class ClassModel extends Model
     {
         return $query->where('department_id', $departmentId)
                     ->where('level', $level);
+    }
+
+    /**
+     * Get the students who attended this class
+     */
+    public function students()
+    {
+        return $this->belongsToMany(User::class, 'class_attendances', 'class_id', 'student_id')
+                    ->withPivot(['full_name', 'matric_number', 'latitude', 'longitude', 'distance', 'marked_at'])
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get the count of students who attended this class
+     */
+    public function getStudentCountAttribute(): int
+    {
+        return $this->students()->count();
     }
 }

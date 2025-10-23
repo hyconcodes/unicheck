@@ -152,8 +152,8 @@ new class extends Component {
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Department Management</h1>
-            <p class="text-sm sm:text-base text-gray-600 mt-1">Manage university departments and their settings</p>
+            <h1 class="text-2xl sm:text-3xl font-bold text-zinc-900">Department Management</h1>
+            <p class="text-sm sm:text-base text-zinc-600 mt-1">Manage university departments and their settings</p>
         </div>
     </div>
 
@@ -181,8 +181,8 @@ new class extends Component {
     @endif
 
     <!-- Department Form -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-        <h2 class="text-lg sm:text-xl font-semibold text-gray-900 mb-4">
+    <div class="bg-white rounded-lg shadow-sm border border-zinc-200 p-4 sm:p-6">
+        <h2 class="text-lg sm:text-xl font-semibold text-zinc-900 mb-4">
             {{ $editingId ? 'Edit Department' : 'Add New Department' }}
         </h2>
         
@@ -190,14 +190,14 @@ new class extends Component {
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <!-- Department Name -->
                 <div>
-                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="name" class="block text-sm font-medium text-zinc-700 mb-1">
                         Department Name <span class="text-red-500">*</span>
                     </label>
                     <input 
                         type="text" 
                         id="name"
                         wire:model="name"
-                        class="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        class="w-full px-3 py-2 text-sm sm:text-base border border-zinc-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="e.g., Computer Science"
                     >
                     @error('name') 
@@ -207,14 +207,14 @@ new class extends Component {
 
                 <!-- Department Code -->
                 <div>
-                    <label for="code" class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="code" class="block text-sm font-medium text-zinc-700 mb-1">
                         Department Code <span class="text-red-500">*</span>
                     </label>
                     <input 
                         type="text" 
                         id="code"
                         wire:model="code"
-                        class="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                        class="w-full px-3 py-2 text-sm sm:text-base border border-zinc-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
                         placeholder="e.g., CSC"
                         maxlength="10"
                     >
@@ -226,14 +226,14 @@ new class extends Component {
 
             <!-- Description -->
             <div>
-                <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="description" class="block text-sm font-medium text-zinc-700 mb-1">
                     Description
                 </label>
                 <textarea 
                     id="description"
                     wire:model="description"
                     rows="3"
-                    class="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    class="w-full px-3 py-2 text-sm sm:text-base border border-zinc-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Brief description of the department..."
                 ></textarea>
                 @error('description') 
@@ -247,9 +247,9 @@ new class extends Component {
                     type="checkbox" 
                     id="is_active"
                     wire:model="is_active"
-                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-zinc-300 rounded"
                 >
-                <label for="is_active" class="ml-2 text-sm text-gray-700">
+                <label for="is_active" class="ml-2 text-sm text-zinc-700">
                     Active Department
                 </label>
             </div>
@@ -270,7 +270,7 @@ new class extends Component {
                     <button 
                         type="button"
                         wire:click="cancelEdit"
-                        class="w-full sm:w-auto px-4 py-2 bg-gray-600 text-white text-sm sm:text-base font-medium rounded-lg hover:bg-gray-700 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                        class="w-full sm:w-auto px-4 py-2 bg-zinc-600 text-white text-sm sm:text-base font-medium rounded-lg hover:bg-zinc-700 focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 transition-colors"
                     >
                         Cancel
                     </button>
@@ -280,15 +280,15 @@ new class extends Component {
     </div>
 
     <!-- Search and Filters -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-zinc-200 p-4 sm:p-6">
         <div class="flex flex-col sm:flex-row gap-4">
             <div class="flex-1">
-                <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Search Departments</label>
+                <label for="search" class="block text-sm font-medium text-zinc-700 mb-1">Search Departments</label>
                 <input 
                     type="text" 
                     id="search"
                     wire:model.live="search"
-                    class="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    class="w-full px-3 py-2 text-sm sm:text-base border border-zinc-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Search by name, code, or description..."
                 >
             </div>
@@ -296,44 +296,44 @@ new class extends Component {
     </div>
 
     <!-- Departments Table -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">Departments ({{ $departments->total() }})</h3>
+    <div class="bg-white rounded-lg shadow-sm border border-zinc-200 overflow-hidden">
+        <div class="px-4 sm:px-6 py-4 border-b border-zinc-200">
+            <h3 class="text-lg font-medium text-zinc-900">Departments ({{ $departments->total() }})</h3>
         </div>
 
         @if($departments->count() > 0)
             <!-- Desktop Table -->
             <div class="hidden sm:block overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+                <table class="min-w-full divide-y divide-zinc-200">
+                    <thead class="bg-zinc-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Users</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">Department</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">Code</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">Users</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="bg-white divide-y divide-zinc-200">
                         @foreach($departments as $department)
-                            <tr class="hover:bg-gray-50">
+                            <tr class="hover:bg-zinc-50">
                                 <td class="px-6 py-4">
                                     <div>
-                                        <div class="text-sm font-medium text-gray-900">{{ $department->name }}</div>
+                                        <div class="text-sm font-medium text-zinc-900">{{ $department->name }}</div>
                                         @if($department->description)
-                                            <div class="text-sm text-gray-500">{{ Str::limit($department->description, 50) }}</div>
+                                            <div class="text-sm text-zinc-500">{{ Str::limit($department->description, 50) }}</div>
                                         @endif
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-800">
                                         {{ $department->code }}
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 text-sm text-gray-900">
+                                <td class="px-6 py-4 text-sm text-zinc-900">
                                     <div class="space-y-1">
                                         <div>Total: {{ $department->users_count }}</div>
-                                        <div class="text-xs text-gray-500">
+                                        <div class="text-xs text-zinc-500">
                                             Students: {{ $department->students_count }} | Lecturers: {{ $department->lecturers_count }}
                                         </div>
                                     </div>
@@ -367,15 +367,15 @@ new class extends Component {
             </div>
 
             <!-- Mobile Cards -->
-            <div class="sm:hidden divide-y divide-gray-200">
+            <div class="sm:hidden divide-y divide-zinc-200">
                 @foreach($departments as $department)
                     <div class="p-4 space-y-3">
                         <div class="flex items-start justify-between">
                             <div class="flex-1">
-                                <h4 class="text-sm font-medium text-gray-900">{{ $department->name }}</h4>
-                                <p class="text-xs text-gray-500 mt-1">Code: {{ $department->code }}</p>
+                                <h4 class="text-sm font-medium text-zinc-900">{{ $department->name }}</h4>
+                                <p class="text-xs text-zinc-500 mt-1">Code: {{ $department->code }}</p>
                                 @if($department->description)
-                                    <p class="text-xs text-gray-600 mt-1">{{ Str::limit($department->description, 60) }}</p>
+                                    <p class="text-xs text-zinc-600 mt-1">{{ Str::limit($department->description, 60) }}</p>
                                 @endif
                             </div>
                             <button 
@@ -386,7 +386,7 @@ new class extends Component {
                             </button>
                         </div>
                         
-                        <div class="text-xs text-gray-500">
+                        <div class="text-xs text-zinc-500">
                             Total Users: {{ $department->users_count }} (Students: {{ $department->students_count }}, Lecturers: {{ $department->lecturers_count }})
                         </div>
                         
@@ -409,16 +409,16 @@ new class extends Component {
             </div>
 
             <!-- Pagination -->
-            <div class="px-4 sm:px-6 py-4 border-t border-gray-200">
+            <div class="px-4 sm:px-6 py-4 border-t border-zinc-200">
                 {{ $departments->links() }}
             </div>
         @else
             <div class="text-center py-12">
-                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="mx-auto h-12 w-12 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                 </svg>
-                <h3 class="mt-2 text-sm font-medium text-gray-900">No departments found</h3>
-                <p class="mt-1 text-sm text-gray-500">
+                <h3 class="mt-2 text-sm font-medium text-zinc-900">No departments found</h3>
+                <p class="mt-1 text-sm text-zinc-500">
                     {{ $search ? 'Try adjusting your search criteria.' : 'Get started by creating your first department.' }}
                 </p>
             </div>
@@ -427,7 +427,7 @@ new class extends Component {
 
     <!-- Delete Confirmation Modal -->
     @if($showDeleteModal && $departmentToDelete)
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="fixed inset-0 bg-zinc-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
             <div class="bg-white rounded-lg max-w-sm sm:max-w-md w-full p-4 sm:p-6">
                 <div class="flex items-center mb-4">
                     <div class="mx-auto flex-shrink-0 flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-red-100">
@@ -438,8 +438,8 @@ new class extends Component {
                 </div>
                 
                 <div class="text-center mb-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">Delete Department</h3>
-                    <p class="text-sm text-gray-500">
+                    <h3 class="text-lg font-medium text-zinc-900 mb-2">Delete Department</h3>
+                    <p class="text-sm text-zinc-500">
                         Are you sure you want to delete <strong>{{ $departmentToDelete->name }}</strong>? 
                         This action cannot be undone.
                     </p>
@@ -463,7 +463,7 @@ new class extends Component {
                     </button>
                     <button 
                         wire:click="$set('showDeleteModal', false)"
-                        class="w-full sm:w-auto px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                        class="w-full sm:w-auto px-4 py-2 bg-zinc-600 text-white text-sm font-medium rounded-lg hover:bg-zinc-700 focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2"
                     >
                         Cancel
                     </button>

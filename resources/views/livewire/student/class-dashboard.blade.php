@@ -82,6 +82,25 @@ new #[Layout('components.layouts.app', ['title' => 'My Classes'])] class extends
             ->first();
     }
     
+    /**
+     * Get time remaining for a class in seconds
+     */
+    public function getTimeRemaining($class): int
+    {
+        if (!$class->ends_at) {
+            return 0;
+        }
+        
+        $now = now();
+        $endsAt = $class->ends_at;
+        
+        if ($now->greaterThan($endsAt)) {
+            return 0;
+        }
+        
+        return $now->diffInSeconds($endsAt);
+    }
+    
     public function with(): array
     {
         $activeClasses = $this->getActiveClasses();
@@ -173,6 +192,14 @@ new #[Layout('components.layouts.app', ['title' => 'My Classes'])] class extends
                                         <p><span class="font-medium">Started:</span> {{ $class->starts_at->format('M j, Y g:i A') }}</p>
                                         @if($class->ends_at)
                                             <p><span class="font-medium">Ends:</span> {{ $class->ends_at->format('M j, Y g:i A') }}</p>
+                                            @if($this->getTimeRemaining($class) > 0)
+                                                <p class="font-medium text-blue-600 dark:text-blue-400">
+                                                    <span class="font-medium">Time Remaining:</span> 
+                                                    <span class="countdown-timer" data-end-time="{{ $class->ends_at->timestamp }}">
+                                                        {{ gmdate('H:i:s', $this->getTimeRemaining($class)) }}
+                                                    </span>
+                                                </p>
+                                            @endif
                                         @endif
                                         <p><span class="font-medium">Radius:</span> {{ $class->radius }}m</p>
                                         <p><span class="font-medium">Attendees:</span> {{ $class->attendances->count() }}</p>
@@ -459,5 +486,33 @@ new #[Layout('components.layouts.app', ['title' => 'My Classes'])] class extends
             closeClassDetails();
         }
     });
+
+    // Countdown timer functionality
+    function updateCountdownTimers() {
+        const timers = document.querySelectorAll('.countdown-timer');
+        
+        timers.forEach(timer => {
+            const endTime = parseInt(timer.getAttribute('data-end-time')) * 1000;
+            const now = new Date().getTime();
+            const timeLeft = endTime - now;
+            
+            if (timeLeft > 0) {
+                const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                
+                timer.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                timer.textContent = '00:00:00';
+                timer.parentElement.innerHTML = '<span class="font-medium text-red-600 dark:text-red-400">Class Ended</span>';
+            }
+        });
+    }
+
+    // Update timers every second
+    setInterval(updateCountdownTimers, 1000);
+    
+    // Initial update
+    updateCountdownTimers();
 </script>
 </main>
