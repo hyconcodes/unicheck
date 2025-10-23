@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Models\Department;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -14,18 +15,23 @@ new #[Layout('components.layouts.auth')] class extends Component {
     public string $email = '';
     public string $password = '';
     public string $password_confirmation = '';
+    public string $department_id = '';
+    public string $level = '';
 
-    /**
-     * Handle an incoming registration request.
-     */
     public function register(): void
     {
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class, 'regex:/^[a-zA-Z]+\.[0-9]+@bouesti\.edu\.ng$/'],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
+            'department_id' => ['required', 'exists:departments,id'],
+            'level' => ['required', 'in:100,200,300,400,500,600'],
         ], [
             'email.regex' => 'Email must be in the format: lastname.matric_no@bouesti.edu.ng',
+            'department_id.required' => 'Please select your department.',
+            'department_id.exists' => 'Selected department is invalid.',
+            'level.required' => 'Please select your level.',
+            'level.in' => 'Level must be between 100 and 600.',
         ]);
 
         // Extract matric_no from email (number after the lastname)
@@ -50,6 +56,21 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
         // Redirect to student dashboard
         $this->redirectIntended(route('student.dashboard', absolute: false), navigate: true);
+    }
+
+    public function with()
+    {
+        return [
+            'departments' => Department::active()->orderBy('name')->get(),
+            'levels' => [
+                '100' => '100 Level',
+                '200' => '200 Level', 
+                '300' => '300 Level',
+                '400' => '400 Level',
+                '500' => '500 Level',
+                '600' => '600 Level',
+            ]
+        ];
     }
 }; ?>
 
@@ -80,6 +101,30 @@ new #[Layout('components.layouts.auth')] class extends Component {
             autocomplete="email"
             placeholder="lastname.matricno@bouesti.edu.ng"
         />
+
+        <!-- Department -->
+        <flux:select
+            wire:model="department_id"
+            :label="__('Department')"
+            required
+            placeholder="Select your department"
+        >
+            @foreach($departments as $department)
+                <option value="{{ $department->id }}">{{ $department->name }} ({{ $department->code }})</option>
+            @endforeach
+        </flux:select>
+
+        <!-- Level -->
+        <flux:select
+            wire:model="level"
+            :label="__('Level')"
+            required
+            placeholder="Select your level"
+        >
+            @foreach($levels as $value => $label)
+                <option value="{{ $value }}">{{ $label }}</option>
+            @endforeach
+        </flux:select>
 
         <!-- Password -->
         <flux:input

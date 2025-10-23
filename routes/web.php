@@ -30,9 +30,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Volt::route('superadmin/dashboard', 'dashboard.superadmin')->name('superadmin.dashboard');
         Volt::route('superadmin/roles-permissions', 'admin.role-permission-manager')->name('admin.role-permission-manager');
         Volt::route('superadmin/account-manager', 'admin.account-manager')->name('superadmin.account-manager');
-        Volt::route('superadmin/location-manager', 'admin.location-manager')
+        Volt::route('superadmin/class-manager', 'admin.class-manager')
             ->middleware('permission:can.manage.locations')
-            ->name('superadmin.location-manager');
+            ->name('superadmin.class-manager');
+        Volt::route('superadmin/department-manager', 'admin.department-manager')->name('superadmin.department-manager');
+        Volt::route('superadmin/level-promotion-manager', 'admin.level-promotion-manager')->name('superadmin.level-promotion-manager');
         // For superadmin to view profile
         Volt::route('student/profile/{user}', 'profiles.student')->name('student.profile');
         Volt::route('lecturer/profile/{user}', 'profiles.lecturer')->name('lecturer.profile');
@@ -40,10 +42,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['role:lecturer'])->group(function () {
         Volt::route('lecturer/dashboard', 'dashboard.lecturer')->name('lecturer.dashboard');
+        Volt::route('lecturer/classes', 'lecturer.class-manager')->name('lecturer.classes');
     });
 
     Route::middleware(['role:student'])->group(function () {
         Volt::route('student/dashboard', 'dashboard.student')->name('student.dashboard');
+        Volt::route('student/classes', 'student.class-dashboard')->name('student.classes');
+        Volt::route('student/classes/{classId}/attendance', 'student.mark-attendance')->name('student.mark-attendance');
     });
 });
 

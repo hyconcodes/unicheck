@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Models\Department;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -14,18 +15,19 @@ new #[Layout('components.layouts.auth')] class extends Component {
     public string $email = '';
     public string $password = '';
     public string $password_confirmation = '';
+    public string $department_id = '';
 
-    /**
-     * Handle an incoming registration request.
-     */
     public function register(): void
     {
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class, 'regex:/^[a-zA-Z]+\.[a-zA-Z]+@bouesti\.edu\.ng$/'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class, 'regex:/^[a-zA-Z.]+@bouesti\.edu\.ng$/'],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
+            'department_id' => ['required', 'exists:departments,id'],
         ], [
-            'email.regex' => 'Email must be in the format: firstname.lastname@bouesti.edu.ng',
+            'email.regex' => 'Email must be in the format: name@bouesti.edu.ng',
+            'department_id.required' => 'Please select your department.',
+            'department_id.exists' => 'Selected department is invalid.',
         ]);
 
         $validated['password'] = Hash::make($validated['password']);
@@ -35,7 +37,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
         $user = User::create($validated);
         
-        // Assign lecturer role
+        // Assign lecturer role by default
         $user->assignRole('lecturer');
 
         event(new Registered($user));
@@ -46,6 +48,13 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
         // Redirect to lecturer dashboard
         $this->redirectIntended(route('lecturer.dashboard', absolute: false), navigate: true);
+    }
+
+    public function with()
+    {
+        return [
+            'departments' => Department::active()->orderBy('name')->get(),
+        ];
     }
 }; ?>
 
@@ -74,8 +83,20 @@ new #[Layout('components.layouts.auth')] class extends Component {
             type="email"
             required
             autocomplete="email"
-            placeholder="firstname.lastname@bouesti.edu.ng"
+            placeholder="name@bouesti.edu.ng"
         />
+
+        <!-- Department -->
+        <flux:select
+            wire:model="department_id"
+            :label="__('Department')"
+            required
+            placeholder="Select your department"
+        >
+            @foreach($departments as $department)
+                <option value="{{ $department->id }}">{{ $department->name }} ({{ $department->code }})</option>
+            @endforeach
+        </flux:select>
 
         <!-- Password -->
         <flux:input

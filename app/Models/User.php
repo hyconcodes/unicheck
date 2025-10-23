@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -26,6 +27,8 @@ class User extends Authenticatable
         'password',
         'matric_no',
         'avatar',
+        'department_id',
+        'level',
     ];
 
     /**
@@ -81,5 +84,70 @@ class User extends Authenticatable
     public function getAvatarUrl(): string
     {
         return $this->avatar ?? $this->generateRandomAvatar();
+    }
+
+    /**
+     * Get the department that the user belongs to
+     */
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * Get the user's level as a formatted string
+     */
+    public function getLevelDisplayAttribute(): string
+    {
+        return $this->level ? $this->level . ' Level' : 'No Level';
+    }
+
+    /**
+     * Check if user is a student
+     */
+    public function isStudent(): bool
+    {
+        return $this->hasRole('student');
+    }
+
+    /**
+     * Check if user is a lecturer
+     */
+    public function isLecturer(): bool
+    {
+        return $this->hasRole('lecturer');
+    }
+
+    /**
+     * Check if user can be promoted to next level
+     */
+    public function canBePromoted(): bool
+    {
+        return $this->isStudent() && $this->level && $this->level < 600;
+    }
+
+    /**
+     * Get the next level for promotion
+     */
+    public function getNextLevel(): ?int
+    {
+        if (!$this->canBePromoted()) {
+            return null;
+        }
+
+        return $this->level + 100;
+    }
+
+    /**
+     * Promote user to next level
+     */
+    public function promoteToNextLevel(): bool
+    {
+        if (!$this->canBePromoted()) {
+            return false;
+        }
+
+        $this->level = $this->getNextLevel();
+        return $this->save();
     }
 }

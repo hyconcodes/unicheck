@@ -20,14 +20,28 @@
 
                 @can('can.view.roles')
                 <flux:navlist.item icon="key" :href="route('admin.role-permission-manager')" :current="request()->routeIs('admin.role-permission-manager')"
-                    wire:navigate class="text-sm sm:text-base">{{ __('Roles') }}</flux:navlist.item>
+                    wire:navigate class="text-sm sm:text-base">{{ __('Roles & Permission') }}</flux:navlist.item>
                 @endcan
                 
                 @role('superadmin')
                 <flux:navlist.item icon="users" :href="route('superadmin.account-manager')" :current="request()->routeIs('superadmin.account-manager')"
                     wire:navigate class="text-sm sm:text-base">{{ __('Account Management') }}</flux:navlist.item>
-                <flux:navlist.item icon="map-pin" :href="route('superadmin.location-manager')" :current="request()->routeIs('superadmin.location-manager')"
-                    wire:navigate class="text-sm sm:text-base">{{ __('Location Manager') }}</flux:navlist.item>
+                <flux:navlist.item icon="presentation-chart-bar" :href="route('superadmin.class-manager')" :current="request()->routeIs('superadmin.class-manager')"
+                    wire:navigate class="text-sm sm:text-base">{{ __('Class Manager') }}</flux:navlist.item>
+                <flux:navlist.item icon="building-office" :href="route('superadmin.department-manager')" :current="request()->routeIs('superadmin.department-manager')"
+                    wire:navigate class="text-sm sm:text-base">{{ __('Department Manager') }}</flux:navlist.item>
+                <flux:navlist.item icon="academic-cap" :href="route('superadmin.level-promotion-manager')" :current="request()->routeIs('superadmin.level-promotion-manager')"
+                    wire:navigate class="text-sm sm:text-base">{{ __('Level Promotion') }}</flux:navlist.item>
+                @endrole
+
+                @role('lecturer')
+                <flux:navlist.item icon="presentation-chart-bar" :href="route('lecturer.classes')" :current="request()->routeIs('lecturer.classes')"
+                    wire:navigate class="text-sm sm:text-base">{{ __('My Classes') }}</flux:navlist.item>
+                @endrole
+
+                @role('student')
+                <flux:navlist.item icon="academic-cap" :href="route('student.classes')" :current="request()->routeIs('student.classes', 'student.mark-attendance')"
+                    wire:navigate class="text-sm sm:text-base">{{ __('My Classes') }}</flux:navlist.item>
                 @endrole
             </flux:navlist.group>
 
@@ -49,6 +63,23 @@
                 <flux:radio value="dark" icon="moon">{{ __('Dark') }}</flux:radio>
             </flux:radio.group>
         </flux:navlist>
+
+        <!-- Logout Button - Always Visible -->
+        <div class="mt-4 px-2">
+            <form method="POST" action="{{ route('logout') }}" class="w-full">
+                @csrf
+                <flux:button 
+                    type="submit" 
+                    variant="ghost" 
+                    size="sm"
+                    class="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                    data-test="sidebar-logout-button"
+                >
+                    <flux:icon.arrow-right-start-on-rectangle class="size-4 mr-2" />
+                    {{ __('Log Out') }}
+                </flux:button>
+            </form>
+        </div>
 
         <!-- Desktop User Menu -->
         <flux:dropdown class="hidden lg:block" position="bottom" align="start">
