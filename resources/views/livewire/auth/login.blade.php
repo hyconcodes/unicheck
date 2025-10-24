@@ -33,17 +33,34 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
         $user = $this->validateCredentials();
 
-        if (Features::canManageTwoFactorAuthentication() && $user->hasEnabledTwoFactorAuthentication()) {
+        // Check if user has 2FA enabled, if not redirect to setup
+        if (Features::canManageTwoFactorAuthentication()) {
+            if (!$user->hasEnabledTwoFactorAuthentication()) {
+                // Store user info for 2FA setup
+                Session::put([
+                    'login.id' => $user->getKey(),
+                    'login.remember' => $this->remember,
+                    'two_factor_setup_required' => true,
+                ]);
+
+                // Temporarily log in user to access 2FA setup
+                Auth::login($user, $this->remember);
+                
+                $this->redirect(route('two-factor.show'), navigate: true);
+                return;
+            }
+
+            // User has 2FA enabled, proceed with challenge
             Session::put([
                 'login.id' => $user->getKey(),
                 'login.remember' => $this->remember,
             ]);
 
             $this->redirect(route('two-factor.login'), navigate: true);
-
             return;
         }
 
+        // Fallback if 2FA is not available (should not happen in mandatory setup)
         Auth::login($user, $this->remember);
 
         RateLimiter::clear($this->throttleKey());

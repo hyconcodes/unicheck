@@ -109,15 +109,14 @@ Route::middleware(['auth'])->group(function () {
         ->name('appearance.edit');
 
     Volt::route('settings/two-factor', 'settings.two-factor')
-        ->middleware([
-            'permission:can.edit.own.profile',
-            when(
-                Features::canManageTwoFactorAuthentication()
-                    && Features::optionEnabled(Features::twoFactorAuthentication(), 'confirmPassword'),
-                ['password.confirm'],
-                [],
-            ),
-        ])
+        ->middleware(array_merge([
+            'permission:can.edit.own.profile'
+        ], when(
+            Features::canManageTwoFactorAuthentication()
+                && Features::optionEnabled(Features::twoFactorAuthentication(), 'confirmPassword'),
+            ['password.confirm'],
+            []
+        )))
         ->name('two-factor.show');
 });
 

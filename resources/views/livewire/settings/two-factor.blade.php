@@ -43,6 +43,11 @@ new class extends Component {
 
         $this->twoFactorEnabled = auth()->user()->hasEnabledTwoFactorAuthentication();
         $this->requiresConfirmation = Features::optionEnabled(Features::twoFactorAuthentication(), 'confirm');
+
+        // Check if user is required to set up 2FA (from login flow)
+        if (session('two_factor_setup_required') && !$this->twoFactorEnabled) {
+            $this->enable(app(EnableTwoFactorAuthentication::class));
+        }
     }
 
     /**
@@ -106,6 +111,12 @@ new class extends Component {
         $this->closeModal();
 
         $this->twoFactorEnabled = true;
+
+        // If user was required to set up 2FA from login, redirect to dashboard
+        if (session('two_factor_setup_required')) {
+            session()->forget('two_factor_setup_required');
+            $this->redirect(route('dashboard'), navigate: true);
+        }
     }
 
     /**
@@ -145,6 +156,12 @@ new class extends Component {
 
         if (! $this->requiresConfirmation) {
             $this->twoFactorEnabled = auth()->user()->hasEnabledTwoFactorAuthentication();
+            
+            // If user was required to set up 2FA from login and 2FA is now enabled, redirect to dashboard
+            if (session('two_factor_setup_required') && $this->twoFactorEnabled) {
+                session()->forget('two_factor_setup_required');
+                $this->redirect(route('dashboard'), navigate: true);
+            }
         }
     }
 

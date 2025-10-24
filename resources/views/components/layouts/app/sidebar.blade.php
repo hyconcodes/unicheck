@@ -49,6 +49,11 @@
                 @endrole
             </flux:navlist.group>
 
+            <flux:navlist.group :heading="__('Account')" class="grid">
+                <flux:navlist.item icon="user-circle" :href="route('profile.edit')" :current="request()->routeIs('profile.edit', 'password.edit', 'appearance.edit', 'two-factor.show')"
+                    wire:navigate class="text-sm sm:text-base">{{ __('Profile Settings') }}</flux:navlist.item>
+            </flux:navlist.group>
+
         </flux:navlist>
 
         <flux:spacer />
