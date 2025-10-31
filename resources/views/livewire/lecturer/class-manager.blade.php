@@ -11,7 +11,6 @@ use Illuminate\Support\Str;
 use App\Mail\ClassCreatedNotification;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Barryvdh\DomPDF\PDF;
 use App\Models\ClassAttendance;
 
 new #[Layout('components.layouts.app', ['title' => 'Class Manager'])] class extends Component {
