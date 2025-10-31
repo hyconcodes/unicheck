@@ -112,10 +112,36 @@
 
                     <!-- Mobile menu button -->
                     <div class="md:hidden">
-                        <button class="text-gray-700 hover:text-blue-600">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <button id="mobile-menu-button" class="text-gray-700 hover:text-blue-600 transition-colors">
+                            <svg id="hamburger-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
                             </svg>
+                            <svg id="close-icon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Menu -->
+            <div id="mobile-menu" class="md:hidden hidden bg-white border-t border-gray-100 shadow-lg">
+                <div class="px-4 py-2 space-y-1">
+                    <a href="#home" class="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-lg font-medium transition-colors">Home</a>
+                    <a href="#features" class="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-lg font-medium transition-colors">Features</a>
+                    <a href="#how-it-works" class="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-lg font-medium transition-colors">How It Works</a>
+                    <a href="#about" class="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-lg font-medium transition-colors">About</a>
+                    
+                    @auth
+                        <a href="{{ route('dashboard') }}" class="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-lg font-medium transition-colors">Dashboard</a>
+                    @else
+                        <a href="{{ route('login') }}" class="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-lg font-medium transition-colors">Login</a>
+                        <a href="{{ route('register') }}" class="block px-3 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-lg font-medium transition-colors">Register</a>
+                    @endauth
+                    
+                    <div class="pt-2">
+                        <button class="w-full btn-primary text-white px-6 py-3 rounded-xl font-semibold">
+                            Mark Attendance
                         </button>
                     </div>
                 </div>
@@ -440,6 +466,45 @@
 
         <!-- Smooth Scrolling Script -->
         <script>
+            // Mobile menu toggle functionality
+            document.addEventListener('DOMContentLoaded', function() {
+                const mobileMenuButton = document.getElementById('mobile-menu-button');
+                const mobileMenu = document.getElementById('mobile-menu');
+                const hamburgerIcon = document.getElementById('hamburger-icon');
+                const closeIcon = document.getElementById('close-icon');
+
+                mobileMenuButton.addEventListener('click', function() {
+                    // Toggle menu visibility
+                    mobileMenu.classList.toggle('hidden');
+                    
+                    // Toggle icons
+                    hamburgerIcon.classList.toggle('hidden');
+                    closeIcon.classList.toggle('hidden');
+                });
+
+                // Close mobile menu when clicking on a link
+                const mobileMenuLinks = mobileMenu.querySelectorAll('a');
+                mobileMenuLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        mobileMenu.classList.add('hidden');
+                        hamburgerIcon.classList.remove('hidden');
+                        closeIcon.classList.add('hidden');
+                    });
+                });
+
+                // Close mobile menu when clicking outside
+                document.addEventListener('click', function(event) {
+                    const isClickInsideMenu = mobileMenu.contains(event.target);
+                    const isClickOnButton = mobileMenuButton.contains(event.target);
+                    
+                    if (!isClickInsideMenu && !isClickOnButton && !mobileMenu.classList.contains('hidden')) {
+                        mobileMenu.classList.add('hidden');
+                        hamburgerIcon.classList.remove('hidden');
+                        closeIcon.classList.add('hidden');
+                    }
+                });
+            });
+
             // Smooth scrolling for navigation links
             document.querySelectorAll('a[href^="#"]').forEach(anchor => {
                 anchor.addEventListener('click', function (e) {

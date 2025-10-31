@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Mail\ClassCreatedNotification;
+use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Barryvdh\DomPDF\PDF;
+use App\Models\ClassAttendance;
 
 new #[Layout('components.layouts.app', ['title' => 'Class Manager'])] class extends Component {
     
@@ -150,7 +154,7 @@ new #[Layout('components.layouts.app', ['title' => 'Class Manager'])] class exte
             try {
                 Mail::to($student->email)->send(new ClassCreatedNotification($class, $student));
             } catch (\Exception $e) {
-                \Log::error('Failed to send class notification to ' . $student->email . ': ' . $e->getMessage());
+                Log::error('Failed to send class notification to ' . $student->email . ': ' . $e->getMessage());
             }
         }
     }
@@ -225,13 +229,13 @@ new #[Layout('components.layouts.app', ['title' => 'Class Manager'])] class exte
             ->where('level', $class->level)
             ->count();
         
-        $pdf = \PDF::loadView('pdf.attendance-report', [
+        $pdf = Pdf::loadView('pdf.attendance-report', [
             'class' => $class,
             'attendances' => $attendances,
             'totalStudents' => $totalStudents
         ]);
         
-        $filename = 'attendance-' . \Str::slug($class->title) . '-' . now()->format('Y-m-d') . '.pdf';
+        $filename = 'attendance-' . Str::slug($class->title) . '-' . now()->format('Y-m-d') . '.pdf';
         
         return response()->streamDownload(function () use ($pdf) {
             echo $pdf->output();
@@ -312,7 +316,7 @@ new #[Layout('components.layouts.app', ['title' => 'Class Manager'])] class exte
      */
     public function removeAttendance($attendanceId)
     {
-        $attendance = \App\Models\ClassAttendance::with(['student', 'class'])->find($attendanceId);
+        $attendance = ClassAttendance::with(['student', 'class'])->find($attendanceId);
         
         if (!$attendance || $attendance->class->lecturer_id !== Auth::id()) {
             $this->dispatch('show-toast', message: 'Attendance record not found or unauthorized.', type: 'error');

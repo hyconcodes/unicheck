@@ -1,9 +1,12 @@
 <?php
 
+// use Barryvdh\DomPDF\PDF;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 use Livewire\Volt\Volt;
 // use Illuminate\Support\Facades\Auth;
+// use Barryvdh\DomPDF\Facade\Pdf;
+
 
 
 Route::get('/', function () {
@@ -121,3 +124,4 @@ Route::middleware(['auth'])->group(function () {
 });
 
 require __DIR__.'/auth.php';
+// PDF
