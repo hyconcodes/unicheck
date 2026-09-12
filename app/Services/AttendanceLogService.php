@@ -61,6 +61,51 @@ class AttendanceLogService
     }
     
     /**
+     * Log biometric verification success
+     */
+    public static function logBiometricSuccess(ClassModel $class, array $data = []): void
+    {
+        $user = Auth::user();
+
+        $logData = [
+            'event' => 'biometric_verification_success',
+            'user_id' => $user?->id,
+            'user_name' => $user?->name,
+            'matric_number' => $user?->matric_number,
+            'class_id' => $class->id,
+            'class_title' => $class->title,
+            'timestamp' => now()->toISOString(),
+            'ip_address' => request()->ip(),
+            'additional_data' => $data
+        ];
+
+        Log::channel('attendance')->info('Biometric verification successful', $logData);
+    }
+
+    /**
+     * Log biometric verification failure
+     */
+    public static function logBiometricFailure(ClassModel $class, string $reason = '', array $data = []): void
+    {
+        $user = Auth::user();
+
+        $logData = [
+            'event' => 'biometric_verification_failed',
+            'user_id' => $user?->id,
+            'user_name' => $user?->name,
+            'matric_number' => $user?->matric_number,
+            'class_id' => $class->id,
+            'class_title' => $class->title,
+            'failure_reason' => $reason,
+            'timestamp' => now()->toISOString(),
+            'ip_address' => request()->ip(),
+            'additional_data' => $data
+        ];
+
+        Log::channel('attendance')->warning('Biometric verification failed', $logData);
+    }
+
+    /**
      * Log security violations
      */
     public static function logSecurityViolation(string $violation, array $data = []): void

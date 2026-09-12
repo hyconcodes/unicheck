@@ -99,6 +99,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
+    // Biometric failure logging endpoint
+    Route::post('/log-biometric-failure', function () {
+        $data = request()->only(['reason', 'class_id']);
+        \App\Services\AttendanceLogService::logBiometricFailure(
+            isset($data['class_id']) ? \App\Models\ClassModel::find($data['class_id']) : null,
+            $data['reason'] ?? 'unknown'
+        );
+        return response()->json(['ok' => true]);
+    })->middleware('web');
+
     Route::redirect('settings', 'settings/profile');
 
     Volt::route('settings/profile', 'settings.profile')

@@ -204,7 +204,7 @@
     @endif
 
     <div class="footer">
-        <p>Generated on {{ now()->format('M d, Y h:i A') }} | UniCheck Attendance System</p>
+        <p>Generated on {{ now()->format('M d, Y h:i A') }} | BioCheck Attendance System</p>
     </div>
 </body>
 </html>
