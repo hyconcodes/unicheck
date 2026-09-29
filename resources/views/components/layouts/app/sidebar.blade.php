@@ -22,7 +22,7 @@
                 <flux:navlist.item icon="key" :href="route('admin.role-permission-manager')" :current="request()->routeIs('admin.role-permission-manager')"
                     wire:navigate class="text-sm sm:text-base">{{ __('Roles & Permission') }}</flux:navlist.item>
                 @endcan
-                
+
                 @role('superadmin')
                 <flux:navlist.item icon="users" :href="route('superadmin.account-manager')" :current="request()->routeIs('superadmin.account-manager')"
                     wire:navigate class="text-sm sm:text-base">{{ __('Account Management') }}</flux:navlist.item>
@@ -58,49 +58,32 @@
 
         <flux:spacer />
 
-        <flux:navlist variant="outline">
-            {{-- <flux:navlist.item icon="folder-git-2" href="https://github.com/laravel/livewire-starter-kit" target="_blank">
-                {{ __('Repository') }}
-                </flux:navlist.item>
-
-                <flux:navlist.item icon="book-open-text" href="https://laravel.com/docs/starter-kits#livewire" target="_blank">
-                {{ __('Documentation') }}
-                </flux:navlist.item> --}}
-
-            <flux:radio.group x-data variant="segmented" x-model="$flux.appearance">
-                <flux:radio value="light" icon="sun">{{ __('Light') }}</flux:radio>
-                <flux:radio value="dark" icon="moon">{{ __('Dark') }}</flux:radio>
+        {{-- Theme toggle --}}
+        <div class="px-2 pb-2">
+            <flux:radio.group variant="segmented" x-model="$flux.appearance" class="w-full flex">
+                <flux:radio value="light" icon="sun" class="flex-1 justify-center">{{ __('Light') }}</flux:radio>
+                <flux:radio value="dark" icon="moon" class="flex-1 justify-center">{{ __('Dark') }}</flux:radio>
             </flux:radio.group>
-        </flux:navlist>
+        </div>
 
-        <!-- Logout Button - Always Visible -->
-        <div class="mt-4 px-2">
-            <form method="POST" action="{{ route('logout') }}" class="w-full">
+        {{-- Logout --}}
+        <div class="px-2 pb-2">
+            <form method="POST" action="{{ route('logout') }}">
                 @csrf
-                <flux:button 
-                    type="submit" 
-                    variant="ghost" 
-                    size="sm"
-                    class="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
-                    data-test="sidebar-logout-button"
-                >
-                    <flux:icon.arrow-right-start-on-rectangle class="size-4 mr-2" />
+                <flux:navlist.item as="button" type="submit" icon="arrow-right-start-on-rectangle" class="w-full text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
                     {{ __('Log Out') }}
-                </flux:button>
+                </flux:navlist.item>
             </form>
         </div>
 
-        <!-- Desktop User Menu -->
+        {{-- Desktop User Menu --}}
         <flux:dropdown class="hidden lg:block" position="bottom" align="start">
-            <div class="flex items-center gap-2 p-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg" data-test="sidebar-menu-button">
-                <img src="{{ auth()->user()->getAvatarUrl() }}" alt="{{ auth()->user()->name }}" class="h-8 w-8 rounded-lg">
-                <div class="flex-1 text-start">
-                    <div class="font-semibold text-sm">{{ auth()->user()->name }}</div>
-                    <div class="text-xs text-zinc-500 truncate">{{ auth()->user()->email }}</div>
-                    <div class="text-xs text-blue-600 dark:text-blue-400 font-medium capitalize">{{ auth()->user()->getRoleNames()->first() ?? 'No Role' }}</div>
-                </div>
-                <flux:icon name="chevrons-up-down" class="h-4 w-4 text-zinc-400" />
-            </div>
+            <flux:profile
+                :name="auth()->user()->name"
+                :initials="auth()->user()->initials()"
+                :avatar="auth()->user()->getAvatarUrl()"
+                data-test="sidebar-menu-button"
+            />
 
             <flux:menu class="w-[220px]">
                 <flux:menu.radio.group>
@@ -137,23 +120,24 @@
         </flux:dropdown>
     </flux:sidebar>
 
-    <!-- Mobile User Menu -->
-    <flux:header class="lg:hidden px-3 sm:px-4">
+    <!-- Mobile header: sidebar toggle + avatar dropdown -->
+    <flux:header class="lg:hidden">
         <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
         <flux:spacer />
 
-        <flux:dropdown position="top" align="end">
-            <div class="flex items-center gap-2 p-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
-                <img src="{{ auth()->user()->getAvatarUrl() }}" alt="{{ auth()->user()->name }}" class="h-7 w-7 sm:h-8 sm:w-8 rounded-lg">
-                <flux:icon name="chevron-down" class="h-3 w-3 sm:h-4 sm:w-4 text-zinc-400" />
-            </div>
+        <flux:dropdown position="bottom" align="end">
+            <flux:profile
+                :initials="auth()->user()->initials()"
+                :avatar="auth()->user()->getAvatarUrl()"
+                icon:trailing="chevrons-up-down"
+            />
 
-            <flux:menu class="w-[200px] sm:w-[220px]">
+            <flux:menu class="w-[220px]">
                 <flux:menu.radio.group>
                     <div class="p-0 text-sm font-normal">
                         <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-                            <img src="{{ auth()->user()->getAvatarUrl() }}" alt="{{ auth()->user()->name }}" class="h-7 w-7 sm:h-8 sm:w-8 rounded-lg">
+                            <img src="{{ auth()->user()->getAvatarUrl() }}" alt="{{ auth()->user()->name }}" class="h-8 w-8 rounded-lg">
 
                             <div class="grid flex-1 text-start text-sm leading-tight min-w-0">
                                 <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
