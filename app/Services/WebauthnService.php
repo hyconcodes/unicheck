@@ -20,8 +20,9 @@ class WebauthnService
 
     /**
      * Generate registration options for the browser.
+     * Returns a plain array so Livewire can serialize it to the frontend.
      */
-    public function getRegistrationOptions(User $user): object
+    public function getRegistrationOptions(User $user): array
     {
         $existingCredentials = WebauthnCredential::where('user_id', $user->id)
             ->pluck('credential_id')
@@ -31,7 +32,7 @@ class WebauthnService
             return base64_decode($id);
         }, $existingCredentials);
 
-        return $this->webAuthn->getCreateArgs(
+        $options = $this->webAuthn->getCreateArgs(
             (string) $user->id,
             $user->email,
             $user->name,
@@ -41,6 +42,12 @@ class WebauthnService
             null,
             $excludeIds
         );
+
+        // Persist challenge for verification on the next request
+        session(['webauthn_challenge' => $this->webAuthn->getChallenge()->getHex()]);
+
+        // Convert stdClass + ByteBuffer graph to a plain JSON-friendly array
+        return json_decode(json_encode($options), true);
     }
 
     /**
@@ -48,22 +55,37 @@ class WebauthnService
      */
     public function verifyRegistration(User $user, object $attestationResponse): bool
     {
-        $challenge = $this->webAuthn->getChallenge()->getHex();
+        $challengeHex = session()->pull('webauthn_challenge');
+        if (!$challengeHex) {
+            throw new \Exception('Registration challenge expired. Please try again.');
+        }
+
         $clientDataJSON = base64_decode($attestationResponse->clientDataJSON ?? '');
         $attestationObject = base64_decode($attestationResponse->attestationObject ?? '');
 
-        $this->webAuthn->loadObject($clientDataJSON, $attestationObject, $challenge);
-
-        $credentialId = $this->webAuthn->getCredentialId();
-        $publicKey = $this->webAuthn->getPublicKey();
-
-        if ($credentialId === null || $publicKey === null) {
-            return false;
+        if ($clientDataJSON === '' || $attestationObject === '') {
+            throw new \Exception('Invalid attestation data received.');
         }
 
-        $credentialIdBase64 = base64_encode($credentialId);
+        $challengeBinary = hex2bin($challengeHex);
 
-        // Check for duplicate credential
+        // processCreate validates origin, challenge, RP ID and returns credential data
+        $data = $this->webAuthn->processCreate(
+            $clientDataJSON,
+            $attestationObject,
+            $challengeBinary,
+            true,  // requireUserVerification
+            true   // requireUserPresent
+        );
+
+        // credentialId is a ByteBuffer
+        $credentialIdBinary = $data->credentialId instanceof ByteBuffer
+            ? $data->credentialId->getBinaryString()
+            : $data->credentialId;
+
+        $credentialIdBase64 = base64_encode($credentialIdBinary);
+        $publicKeyPem = $data->credentialPublicKey; // PEM string
+
         if (WebauthnCredential::where('credential_id', $credentialIdBase64)->exists()) {
             return true;
         }
@@ -71,9 +93,10 @@ class WebauthnService
         WebauthnCredential::create([
             'user_id' => $user->id,
             'credential_id' => $credentialIdBase64,
-            'public_key' => $publicKey,
-            'authenticator_type' => $this->webAuthn->getAuthenticatorDet()->getAsString(),
+            'public_key' => $publicKeyPem,
+            'authenticator_type' => $data->attestationFormat ?? null,
             'device_name' => $attestationResponse->deviceName ?? null,
+            'signature_count' => $data->signatureCounter ?? 0,
         ]);
 
         return true;
@@ -82,7 +105,7 @@ class WebauthnService
     /**
      * Generate authentication options for the browser.
      */
-    public function getAuthenticationOptions(User $user): object
+    public function getAuthenticationOptions(User $user): array
     {
         $credentials = WebauthnCredential::where('user_id', $user->id)->get();
 
@@ -90,7 +113,7 @@ class WebauthnService
             return base64_decode($cred->credential_id);
         })->toArray();
 
-        return $this->webAuthn->getGetArgs(
+        $options = $this->webAuthn->getGetArgs(
             $credentialIds,
             60,
             true,
@@ -100,6 +123,10 @@ class WebauthnService
             true,
             true
         );
+
+        session(['webauthn_challenge' => $this->webAuthn->getChallenge()->getHex()]);
+
+        return json_decode(json_encode($options), true);
     }
 
     /**
@@ -107,23 +134,41 @@ class WebauthnService
      */
     public function verifyAuthentication(User $user, object $assertionResponse): bool
     {
-        $challenge = $this->webAuthn->getChallenge()->getHex();
+        $challengeHex = session()->pull('webauthn_challenge');
+        if (!$challengeHex) {
+            throw new \Exception('Authentication challenge expired. Please try again.');
+        }
+
         $clientDataJSON = base64_decode($assertionResponse->clientDataJSON ?? '');
         $authenticatorData = base64_decode($assertionResponse->authenticatorData ?? '');
         $signature = base64_decode($assertionResponse->signature ?? '');
         $credentialId = base64_decode($assertionResponse->id ?? '');
+
+        if ($clientDataJSON === '' || $authenticatorData === '' || $signature === '' || $credentialId === '') {
+            throw new \Exception('Invalid assertion data received.');
+        }
 
         $credential = WebauthnCredential::where('user_id', $user->id)
             ->where('credential_id', base64_encode($credentialId))
             ->first();
 
         if (!$credential) {
-            return false;
+            throw new \Exception('Credential not found.');
         }
 
         $publicKey = $credential->public_key;
+        $challengeBinary = hex2bin($challengeHex);
 
-        $this->webAuthn->loadObject($clientDataJSON, $authenticatorData, $signature, $credentialId, $publicKey, $challenge);
+        $this->webAuthn->processGet(
+            $clientDataJSON,
+            $authenticatorData,
+            $signature,
+            $publicKey,
+            $challengeBinary,
+            $credential->signature_count,
+            true,
+            true
+        );
 
         $signatureCounter = $this->webAuthn->getSignatureCounter();
         $credential->markUsed($signatureCounter);
@@ -131,17 +176,11 @@ class WebauthnService
         return true;
     }
 
-    /**
-     * Check if a user has any registered WebAuthn credentials.
-     */
     public function userHasCredentials(User $user): bool
     {
         return WebauthnCredential::where('user_id', $user->id)->exists();
     }
 
-    /**
-     * Get the WebAuthn instance.
-     */
     public function getWebAuthnInstance(): WebAuthn
     {
         return $this->webAuthn;

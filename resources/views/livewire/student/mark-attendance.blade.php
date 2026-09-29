@@ -135,9 +135,7 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
 
         $options = $webauthnService->getRegistrationOptions($user);
 
-        $this->dispatch('webauthn-register-start', [
-            'options' => $options,
-        ]);
+        $this->dispatch('webauthn-register-start', options: $options);
     }
 
     public function handleRegistrationComplete(WebauthnService $webauthnService, string $clientDataJSON, string $attestationObject): void
@@ -213,9 +211,7 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
 
         $options = $webauthnService->getAuthenticationOptions($user);
 
-        $this->dispatch('webauthn-authenticate-start', [
-            'options' => $options,
-        ]);
+        $this->dispatch('webauthn-authenticate-start', options: $options);
     }
 
     public function handleAuthenticationComplete(
@@ -740,22 +736,20 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
         });
 
         // ── WebAuthn Registration ──
-        Livewire.on('webauthn-register-start', async (data) => {
+        Livewire.on('webauthn-register-start', async ({ options }) => {
             try {
-                const options = data.options;
-
-                // Convert challenge and user ID from hex to ArrayBuffer
-                options.publicKey.challenge = hexStringToUint8Array(options.publicKey.challenge);
-                options.publicKey.user.id = hexStringToUint8Array(options.publicKey.user.id);
+                // Convert from base64url strings (ByteBuffer::jsonSerialize with base64url) to ArrayBuffers
+                options.publicKey.challenge = base64UrlToArrayBuffer(options.publicKey.challenge);
+                options.publicKey.user.id = base64UrlToArrayBuffer(options.publicKey.user.id);
 
                 // Convert excludeCredentials IDs
                 if (options.publicKey.excludeCredentials) {
                     options.publicKey.excludeCredentials.forEach(cred => {
-                        cred.id = hexStringToUint8Array(cred.id);
+                        cred.id = base64UrlToArrayBuffer(cred.id);
                     });
                 }
 
-                const credential = await navigator.credentials.create(options);
+                const credential = await navigator.credentials.create({ publicKey: options.publicKey });
 
                 // Convert the credential to sendable format
                 const clientDataJSON = arrayBufferToBase64(credential.response.clientDataJSON);
@@ -775,21 +769,19 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
         });
 
         // ── WebAuthn Authentication ──
-        Livewire.on('webauthn-authenticate-start', async (data) => {
+        Livewire.on('webauthn-authenticate-start', async ({ options }) => {
             try {
-                const options = data.options;
-
-                // Convert challenge from hex to ArrayBuffer
-                options.publicKey.challenge = hexStringToUint8Array(options.publicKey.challenge);
+                // Convert challenge from base64url to ArrayBuffer
+                options.publicKey.challenge = base64UrlToArrayBuffer(options.publicKey.challenge);
 
                 // Convert allowCredentials IDs
                 if (options.publicKey.allowCredentials) {
                     options.publicKey.allowCredentials.forEach(cred => {
-                        cred.id = hexStringToUint8Array(cred.id);
+                        cred.id = base64UrlToArrayBuffer(cred.id);
                     });
                 }
 
-                const assertion = await navigator.credentials.get(options);
+                const assertion = await navigator.credentials.get({ publicKey: options.publicKey });
 
                 // Convert the assertion to sendable format
                 const clientDataJSON = arrayBufferToBase64(assertion.response.clientDataJSON);
@@ -811,7 +803,7 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
         });
 
         // ── Biometric failure logging ──
-        Livewire.on('log-biometric-failure', (data) => {
+        Livewire.on('log-biometric-failure', (data) => { // data already unwrapped by Livewire — may be {reason, class_id}
             fetch('/log-biometric-failure', {
                 method: 'POST',
                 headers: {
@@ -826,10 +818,15 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
 
     // ── Utility Functions ──
 
-    function hexStringToUint8Array(hexString) {
-        const matches = hexString.match(/.{1,2}/g);
-        if (!matches) return new Uint8Array(0);
-        return new Uint8Array(matches.map(byte => parseInt(byte, 16)));
+    function base64UrlToArrayBuffer(base64Url) {
+        if (!base64Url) return new Uint8Array(0);
+        let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        // Add padding if needed
+        while (base64.length % 4 !== 0) base64 += '=';
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return bytes;
     }
 
     function arrayBufferToBase64(buffer) {
