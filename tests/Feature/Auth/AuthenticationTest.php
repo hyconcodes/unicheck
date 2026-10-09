@@ -14,7 +14,7 @@ test('login screen can be rendered', function () {
     $response
         ->assertStatus(200)
         ->assertSee('Use fingerprint to sign in')
-        ->assertSee('No email or password needed.');
+        ->assertSee('register this device from the attendance screen');
 });
 
 test('fingerprint login requests a discoverable credential without an allow list', function () {

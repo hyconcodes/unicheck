@@ -82,7 +82,7 @@ The attendance interface obtains the device location and calculates the distance
 
 Biometric Credential Module
 
-Students can register and use a WebAuthn credential through a supported mobile device authenticator. Registration requests a discoverable credential so a student can start fingerprint/passkey sign-in from the login page without entering an email or password. The login assertion identifies the account through the credential returned by the authenticator, and the server verifies its challenge, signature, user handle, and user verification before signing in. Credentials registered before discoverable credentials were required may need to be registered again as a passkey for identifier-free sign-in. The application stores credential data, not a raw fingerprint image.
+Students can register and use WebAuthn passkeys through a supported device authenticator. Registration requests a discoverable credential so a student can start passkey sign-in from the login page without entering an email or password. Passkeys are held by the authenticator or passkey provider; a credential available on one device is not automatically available on another unless the provider syncs it. After signing in with a password on an unsynced device, a student can register an additional passkey from the attendance biometric step. The login assertion identifies the account through the credential returned by the authenticator, and the server verifies its challenge, signature, user handle, and user verification before signing in. Credentials registered before discoverable credentials were required may need to be registered again as passkeys for identifier-free sign-in. The application stores credential data, not a raw fingerprint image.
 
 Complaint and Profile Modules
 

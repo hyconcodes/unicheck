@@ -291,7 +291,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
     <div class="flex flex-col gap-3">
         <p class="text-sm text-center text-zinc-600 dark:text-zinc-400">
-            {{ __('Sign in with a fingerprint or passkey registered on your device. No email or password needed.') }}
+            {{ __('Sign in with a passkey available on this device, including one synced by your passkey provider. If it is not available here, sign in with your password once and register this device from the attendance screen.') }}
         </p>
         <flux:button
             type="button"
@@ -352,7 +352,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
             await $wire.completeFingerprintLogin(clientDataJSON, authenticatorData, signature, credentialId, userHandle);
         } catch (error) {
             if (error.name === 'NotAllowedError') {
-                $wire.handleFingerprintLoginFailure('No passkey was selected. Your attendance credential may not support direct sign-in; use email and password once, then register a discoverable passkey.');
+                $wire.handleFingerprintLoginFailure('Chrome did not find or complete a passkey for UniCheck on this device. If you expect it to sync, check that this device uses the same passkey provider and account. Otherwise sign in with your email and password on this device, open a class attendance screen, capture your location, then choose Register passkey on this device.');
             } else if (error.name === 'SecurityError') {
                 $wire.handleFingerprintLoginFailure('Security error. Make sure you are using HTTPS or localhost.');
             } else {

@@ -640,7 +640,7 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
                     <flux:icon.finger-print class="size-5 text-purple-600 dark:text-purple-400 mt-0.5 mr-3 flex-shrink-0" />
                     <div class="text-sm text-purple-800 dark:text-purple-200">
                         <p class="font-medium mb-1">Fingerprint Required</p>
-                        <p>You must verify your identity with a fingerprint scan each time you mark attendance. This ensures only you can mark your own attendance.</p>
+                        <p>Verify your identity with a passkey each time you mark attendance. Passkeys may use your fingerprint, face, PIN, or device screen lock. Register a passkey on each device that does not have a synced passkey.</p>
                     </div>
                 </div>
             </div>
@@ -671,20 +671,8 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
 
             <div class="flex flex-col sm:flex-row gap-3">
                 @if(!$biometricVerified)
-                    @if(!$hasFingerprint)
-                        {{-- Registration flow --}}
-                        <button
-                            wire:click="startBiometricRegistration"
-                            class="inline-flex items-center justify-center px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white text-sm font-medium rounded-lg transition-colors"
-                            wire:loading.attr="disabled"
-                            {{ !$withinRadius ? 'disabled' : '' }}
-                        >
-                            <flux:icon.finger-print class="size-4 mr-2" />
-                            <span wire:loading.remove wire:target="startBiometricRegistration">Register Fingerprint</span>
-                            <span wire:loading wire:target="startBiometricRegistration">Registering...</span>
-                        </button>
-                    @else
-                        {{-- Authentication flow --}}
+                    @if($hasFingerprint)
+                        {{-- Existing credentials belong to the account; let this device add its own credential too. --}}
                         <button
                             wire:click="startBiometricAuthentication"
                             class="inline-flex items-center justify-center px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white text-sm font-medium rounded-lg transition-colors"
@@ -692,10 +680,23 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
                             {{ !$withinRadius ? 'disabled' : '' }}
                         >
                             <flux:icon.finger-print class="size-4 mr-2" />
-                            <span wire:loading.remove wire:target="startBiometricAuthentication">Scan Fingerprint</span>
-                            <span wire:loading wire:target="startBiometricAuthentication">Scanning...</span>
+                            <span wire:loading.remove wire:target="startBiometricAuthentication">Scan Passkey</span>
+                            <span wire:loading wire:target="startBiometricAuthentication">Checking...</span>
                         </button>
                     @endif
+
+                    <button
+                        wire:click="startBiometricRegistration"
+                        class="inline-flex items-center justify-center px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white text-sm font-medium rounded-lg transition-colors"
+                        wire:loading.attr="disabled"
+                        {{ !$withinRadius ? 'disabled' : '' }}
+                    >
+                        <flux:icon.finger-print class="size-4 mr-2" />
+                        <span wire:loading.remove wire:target="startBiometricRegistration">
+                            {{ $hasFingerprint ? 'Register passkey on this device' : 'Register passkey' }}
+                        </span>
+                        <span wire:loading wire:target="startBiometricRegistration">Registering...</span>
+                    </button>
                 @endif
             </div>
         </div>
