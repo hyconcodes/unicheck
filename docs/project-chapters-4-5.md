@@ -283,6 +283,8 @@ $signatureCounter = $this->webAuthn->getSignatureCounter();
 $credential->markUsed($signatureCounter);
 ```
 
+Students whose passkey is unavailable on their current device can request a short-lived verification code at the login screen. After verifying the code sent to their already-verified student email, they can register a discoverable passkey on that device. The email code authorizes enrollment only; subsequent sign-ins use the passkey, without email/password fallback. Enrollment codes are hashed in the session, expire after ten minutes, and are protected by per-email, per-IP, and verification-attempt rate limits.
+
 ### A.3 Role and Permission Based Access
 
 The route definitions restrict lecturer class management to authenticated users with the lecturer role and the required class viewing or management permission.

@@ -23,7 +23,7 @@ class WebauthnService
      * Generate registration options for the browser.
      * Returns a plain array so Livewire can serialize it to the frontend.
      */
-    public function getRegistrationOptions(User $user): array
+    public function getRegistrationOptions(User $user, string $challengeSessionKey = 'webauthn_challenge'): array
     {
         Log::info('Fingerprint registration: generating WebAuthn registration challenge.', [
             'event' => 'fingerprint_registration_challenge_started',
@@ -50,7 +50,7 @@ class WebauthnService
         );
 
         // Persist challenge for verification on the next request
-        session(['webauthn_challenge' => $this->webAuthn->getChallenge()->getHex()]);
+        session([$challengeSessionKey => $this->webAuthn->getChallenge()->getHex()]);
 
         Log::info('Fingerprint registration: challenge generated; waiting for device verification.', [
             'event' => 'fingerprint_registration_challenge_generated',
@@ -65,14 +65,18 @@ class WebauthnService
     /**
      * Verify and store a registered credential.
      */
-    public function verifyRegistration(User $user, object $attestationResponse): bool
+    public function verifyRegistration(
+        User $user,
+        object $attestationResponse,
+        string $challengeSessionKey = 'webauthn_challenge',
+    ): bool
     {
         Log::info('Fingerprint registration: device response received; verifying registration.', [
             'event' => 'fingerprint_registration_verification_started',
             'user_id' => $user->id,
         ]);
 
-        $challengeHex = session()->pull('webauthn_challenge');
+        $challengeHex = session()->pull($challengeSessionKey);
         if (!$challengeHex) {
             Log::warning('Fingerprint registration failed: challenge expired or missing.', [
                 'event' => 'fingerprint_registration_failed',
@@ -126,7 +130,12 @@ class WebauthnService
         $credentialIdBase64 = base64_encode($credentialIdBinary);
         $publicKeyPem = $data->credentialPublicKey; // PEM string
 
-        if (WebauthnCredential::where('credential_id', $credentialIdBase64)->exists()) {
+        $existingCredential = WebauthnCredential::where('credential_id', $credentialIdBase64)->first();
+        if ($existingCredential) {
+            if ((int) $existingCredential->user_id !== (int) $user->id) {
+                throw new \Exception('This passkey is already registered to another account.');
+            }
+
             Log::info('Fingerprint registration completed: credential already belongs to an account.', [
                 'event' => 'fingerprint_registration_already_registered',
                 'user_id' => $user->id,

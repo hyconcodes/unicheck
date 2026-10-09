@@ -1,10 +1,13 @@
 <?php
 
 use App\Models\User;
+use App\Mail\PasskeyEnrollmentCode;
 use App\Services\WebauthnService;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
@@ -27,6 +30,18 @@ new #[Layout('components.layouts.auth')] class extends Component {
     public bool $isFingerprintAuthenticating = false;
 
     public string $fingerprintError = '';
+
+    public string $passkeyEnrollmentCode = '';
+
+    public bool $passkeyEnrollmentCodeSent = false;
+
+    public bool $passkeyEnrollmentVerified = false;
+
+    public bool $isRegisteringPasskey = false;
+
+    public string $passkeyEnrollmentMessage = '';
+
+    public string $passkeyEnrollmentError = '';
 
     /**
      * Handle an incoming authentication request.
@@ -133,6 +148,326 @@ new #[Layout('components.layouts.auth')] class extends Component {
         ]);
 
         Session::forget(['webauthn_login_attempt_id', 'webauthn_login_challenge']);
+    }
+
+    public function requestPasskeyEnrollmentCode(): void
+    {
+        $this->validate([
+            'email' => ['required', 'string', 'email', 'max:255'],
+        ]);
+
+        $email = Str::lower(trim($this->email));
+        $attemptId = (string) Str::uuid();
+        $emailKey = 'passkey-enrollment:email:' . hash('sha256', $email);
+        $ipKey = 'passkey-enrollment:ip:' . hash('sha256', (string) request()->ip());
+
+        $this->passkeyEnrollmentError = '';
+
+        Log::info('Passkey enrollment: setup code requested.', [
+            'event' => 'passkey_enrollment_code_requested',
+            'attempt_id' => $attemptId,
+        ]);
+
+        if (RateLimiter::tooManyAttempts($emailKey, 3) || RateLimiter::tooManyAttempts($ipKey, 10)) {
+            $this->passkeyEnrollmentMessage = 'For your security, wait before requesting another setup code.';
+
+            Log::warning('Passkey enrollment: setup code request was rate limited.', [
+                'event' => 'passkey_enrollment_code_rate_limited',
+                'attempt_id' => $attemptId,
+            ]);
+
+            return;
+        }
+
+        $this->passkeyEnrollmentError = '';
+        $this->passkeyEnrollmentMessage = '';
+        $this->passkeyEnrollmentCodeSent = true;
+        $this->passkeyEnrollmentVerified = false;
+        $this->passkeyEnrollmentCode = '';
+        Session::forget([
+            'passkey_enrollment_pending',
+            'passkey_enrollment_user_id',
+            'passkey_enrollment_authorized_until',
+            'webauthn_enrollment_challenge',
+        ]);
+
+        RateLimiter::hit($emailKey, 600);
+        RateLimiter::hit($ipKey, 3600);
+
+        $user = User::query()
+            ->whereRaw('LOWER(email) = ?', [$email])
+            ->first();
+
+        if ($user && $user->email_verified_at && $user->isStudent()) {
+            $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+            Session::put('passkey_enrollment_pending', [
+                'user_id' => $user->id,
+                'code_hash' => Hash::make($code),
+                'expires_at' => now()->addMinutes(10)->timestamp,
+                'attempt_id' => $attemptId,
+            ]);
+
+            try {
+                Mail::to($user->email)->send(new PasskeyEnrollmentCode($code));
+
+                Log::info('Passkey enrollment: one-time code sent to verified student email.', [
+                    'event' => 'passkey_enrollment_code_sent',
+                    'attempt_id' => $attemptId,
+                    'user_id' => $user->id,
+                ]);
+            } catch (\Throwable $exception) {
+                Session::forget('passkey_enrollment_pending');
+                RateLimiter::clear($emailKey);
+
+                Log::error('Passkey enrollment: one-time code email could not be sent.', [
+                    'event' => 'passkey_enrollment_email_failed',
+                    'attempt_id' => $attemptId,
+                    'user_id' => $user->id,
+                    'exception' => $exception::class,
+                    'reason' => $exception->getMessage(),
+                ]);
+            }
+        } else {
+            Log::info('Passkey enrollment: code requested for an ineligible account.', [
+                'event' => 'passkey_enrollment_code_not_sent',
+                'attempt_id' => $attemptId,
+            ]);
+        }
+
+        $this->passkeyEnrollmentMessage = 'If an eligible student account matches this email, a setup code will be sent. Check your inbox and spam folder.';
+    }
+
+    public function verifyPasskeyEnrollmentCode(): void
+    {
+        $this->validate([
+            'passkeyEnrollmentCode' => ['required', 'digits:6'],
+        ]);
+
+        $pending = Session::get('passkey_enrollment_pending');
+        $attemptId = is_array($pending) ? ($pending['attempt_id'] ?? null) : null;
+        $verifyKey = 'passkey-enrollment:verify:' . hash('sha256', (string) $attemptId . '|' . (string) request()->ip());
+
+        Log::info('Passkey enrollment: one-time code verification started.', [
+            'event' => 'passkey_enrollment_code_verification_started',
+            'attempt_id' => $attemptId,
+        ]);
+
+        if (RateLimiter::tooManyAttempts($verifyKey, 5)) {
+            $this->passkeyEnrollmentError = 'Too many incorrect codes. Request a new code and try again.';
+            Session::forget('passkey_enrollment_pending');
+
+            Log::warning('Passkey enrollment: code verification was rate limited.', [
+                'event' => 'passkey_enrollment_code_verification_rate_limited',
+                'attempt_id' => $attemptId,
+            ]);
+
+            return;
+        }
+
+        RateLimiter::hit($verifyKey, 600);
+
+        if (
+            !is_array($pending)
+            || !isset($pending['user_id'], $pending['code_hash'], $pending['expires_at'])
+            || $pending['expires_at'] < now()->timestamp
+            || !Hash::check($this->passkeyEnrollmentCode, $pending['code_hash'])
+        ) {
+            $this->passkeyEnrollmentError = 'That code is invalid or expired. Request a new code and try again.';
+            $failureReason = !is_array($pending) || !isset($pending['code_hash'])
+                ? 'challenge_missing'
+                : (!isset($pending['expires_at']) || $pending['expires_at'] < now()->timestamp
+                    ? 'code_expired'
+                    : 'code_mismatch');
+
+            Log::warning('Passkey enrollment: one-time code verification failed.', [
+                'event' => 'passkey_enrollment_code_rejected',
+                'attempt_id' => $attemptId,
+                'reason' => $failureReason,
+            ]);
+
+            if (is_array($pending) && isset($pending['expires_at']) && $pending['expires_at'] < now()->timestamp) {
+                Session::forget('passkey_enrollment_pending');
+            }
+
+            return;
+        }
+
+        $user = User::find($pending['user_id']);
+        if (!$user || !$user->email_verified_at || !$user->isStudent()) {
+            Session::forget('passkey_enrollment_pending');
+            $this->passkeyEnrollmentError = 'This account cannot enroll a passkey. Use the standard sign-in option or contact support.';
+
+            Log::warning('Passkey enrollment: account was no longer eligible after code verification.', [
+                'event' => 'passkey_enrollment_account_ineligible',
+                'attempt_id' => $attemptId,
+                'user_id' => $user?->id,
+            ]);
+
+            return;
+        }
+
+        RateLimiter::clear($verifyKey);
+        Session::forget('passkey_enrollment_pending');
+        Session::put([
+            'passkey_enrollment_user_id' => $user->id,
+            'passkey_enrollment_authorized_until' => now()->addMinutes(10)->timestamp,
+        ]);
+
+        $this->passkeyEnrollmentCode = '';
+        $this->passkeyEnrollmentVerified = true;
+        $this->passkeyEnrollmentError = '';
+        $this->passkeyEnrollmentMessage = 'Email verified. Now register a passkey on this device.';
+
+        Log::info('Passkey enrollment: verified student email code accepted.', [
+            'event' => 'passkey_enrollment_email_verified',
+            'attempt_id' => $attemptId,
+            'user_id' => $user->id,
+        ]);
+    }
+
+    public function startPasskeyEnrollment(WebauthnService $webauthnService): void
+    {
+        $user = $this->getAuthorizedPasskeyEnrollmentUser();
+        if (!$user) {
+            $this->passkeyEnrollmentVerified = false;
+            $this->passkeyEnrollmentError = 'The setup session expired. Request a new email code and try again.';
+
+            Log::warning('Passkey enrollment: registration requested without valid email verification.', [
+                'event' => 'passkey_enrollment_authorization_expired',
+            ]);
+
+            return;
+        }
+
+        $this->passkeyEnrollmentError = '';
+        $this->isRegisteringPasskey = true;
+
+        try {
+            $options = $webauthnService->getRegistrationOptions($user, 'webauthn_enrollment_challenge');
+
+            $this->dispatch('webauthn-enrollment-start', options: $options);
+
+            Log::info('Passkey enrollment: device registration challenge generated.', [
+                'event' => 'passkey_enrollment_challenge_generated',
+                'user_id' => $user->id,
+            ]);
+        } catch (\Throwable $exception) {
+            $this->isRegisteringPasskey = false;
+            $this->passkeyEnrollmentError = 'Could not start passkey setup. Please try again.';
+
+            Log::error('Passkey enrollment: device registration could not start.', [
+                'event' => 'passkey_enrollment_start_failed',
+                'user_id' => $user->id,
+                'exception' => $exception::class,
+                'reason' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    public function passkeyEnrollmentBrowserPromptStarted(): void
+    {
+        Log::info('Passkey enrollment: browser received the challenge and is requesting a device passkey.', [
+            'event' => 'passkey_enrollment_browser_prompt_started',
+            'user_id' => Session::get('passkey_enrollment_user_id'),
+        ]);
+    }
+
+    public function completePasskeyEnrollment(
+        WebauthnService $webauthnService,
+        string $clientDataJSON,
+        string $attestationObject,
+    ): void {
+        $user = $this->getAuthorizedPasskeyEnrollmentUser();
+        if (!$user) {
+            Session::forget('webauthn_enrollment_challenge');
+            $this->passkeyEnrollmentVerified = false;
+            $this->isRegisteringPasskey = false;
+            $this->passkeyEnrollmentError = 'The setup session expired. Request a new email code and try again.';
+
+            Log::warning('Passkey enrollment: response received after enrollment authorization expired.', [
+                'event' => 'passkey_enrollment_authorization_expired',
+            ]);
+
+            return;
+        }
+
+        try {
+            $webauthnService->verifyRegistration($user, (object) [
+                'clientDataJSON' => $clientDataJSON,
+                'attestationObject' => $attestationObject,
+            ], 'webauthn_enrollment_challenge');
+
+            Session::forget([
+                'passkey_enrollment_user_id',
+                'passkey_enrollment_authorized_until',
+                'webauthn_enrollment_challenge',
+            ]);
+            $this->isRegisteringPasskey = false;
+            $this->passkeyEnrollmentVerified = false;
+            $this->passkeyEnrollmentMessage = 'Passkey registered. Signing you in…';
+
+            Log::info('Passkey enrollment: device passkey registered successfully.', [
+                'event' => 'passkey_enrollment_succeeded',
+                'user_id' => $user->id,
+            ]);
+
+            $this->authenticateUser($user);
+        } catch (\Throwable $exception) {
+            $this->isRegisteringPasskey = false;
+            $this->passkeyEnrollmentError = 'Passkey setup failed. Please try again.';
+
+            Log::warning('Passkey enrollment: device registration failed.', [
+                'event' => 'passkey_enrollment_failed',
+                'user_id' => $user->id,
+                'exception' => $exception::class,
+                'reason' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    public function handlePasskeyEnrollmentFailure(string $error): void
+    {
+        $this->isRegisteringPasskey = false;
+        $safeError = Str::limit(str_replace(["\r", "\n"], ' ', $error), 250);
+        $this->passkeyEnrollmentError = $safeError;
+        Session::forget('webauthn_enrollment_challenge');
+
+        Log::warning('Passkey enrollment: browser or authenticator did not complete registration.', [
+            'event' => 'passkey_enrollment_browser_failed',
+            'user_id' => Session::get('passkey_enrollment_user_id'),
+            'reason' => $safeError,
+        ]);
+    }
+
+    protected function getAuthorizedPasskeyEnrollmentUser(): ?User
+    {
+        $userId = Session::get('passkey_enrollment_user_id');
+        $authorizedUntil = Session::get('passkey_enrollment_authorized_until');
+
+        if (!$userId || !$authorizedUntil || $authorizedUntil < now()->timestamp) {
+            Session::forget([
+                'passkey_enrollment_user_id',
+                'passkey_enrollment_authorized_until',
+                'webauthn_enrollment_challenge',
+            ]);
+
+            return null;
+        }
+
+        $user = User::find($userId);
+
+        if (!$user || !$user->email_verified_at || !$user->isStudent()) {
+            Session::forget([
+                'passkey_enrollment_user_id',
+                'passkey_enrollment_authorized_until',
+                'webauthn_enrollment_challenge',
+            ]);
+
+            return null;
+        }
+
+        return $user;
     }
 
     protected function authenticateUser(User $user): void
@@ -291,7 +626,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
     <div class="flex flex-col gap-3">
         <p class="text-sm text-center text-zinc-600 dark:text-zinc-400">
-            {{ __('Sign in with a passkey available on this device, including one synced by your passkey provider. If it is not available here, sign in with your password once and register this device from the attendance screen.') }}
+            {{ __('Sign in with a passkey available on this device, including one synced by your passkey provider. If it is not available, verify your student email below to register a passkey on this device. Password sign-in and attendance-screen setup are also available.') }}
         </p>
         <flux:button
             type="button"
@@ -308,6 +643,73 @@ new #[Layout('components.layouts.auth')] class extends Component {
                 {{ $fingerprintError }}
             </div>
         @endif
+
+        <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+            <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {{ __('No passkey on this device?') }}
+            </h2>
+            <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                {{ __('Verify your student email once, then register a passkey on this device. Future sign-ins can use the passkey directly.') }}
+            </p>
+
+            @if (!$passkeyEnrollmentVerified)
+                @if (!$passkeyEnrollmentCodeSent)
+                    <flux:button
+                        type="button"
+                        variant="outline"
+                        class="mt-3 w-full"
+                        wire:click="requestPasskeyEnrollmentCode"
+                    >
+                        {{ __('Email me a passkey setup code') }}
+                    </flux:button>
+                @else
+                    <form wire:submit="verifyPasskeyEnrollmentCode" class="mt-3 flex flex-col gap-3">
+                        <flux:input
+                            wire:model="passkeyEnrollmentCode"
+                            :label="__('Six-digit email code')"
+                            type="text"
+                            inputmode="numeric"
+                            autocomplete="one-time-code"
+                            maxlength="6"
+                            required
+                        />
+                        <flux:button type="submit" variant="outline" class="w-full">
+                            {{ __('Verify code') }}
+                        </flux:button>
+                        <flux:button
+                            type="button"
+                            variant="ghost"
+                            class="w-full"
+                            wire:click="requestPasskeyEnrollmentCode"
+                        >
+                            {{ __('Send another code') }}
+                        </flux:button>
+                    </form>
+                @endif
+            @else
+                <flux:button
+                    type="button"
+                    variant="primary"
+                    class="mt-3 w-full"
+                    wire:click="startPasskeyEnrollment"
+                    :disabled="$isRegisteringPasskey"
+                >
+                    {{ $isRegisteringPasskey ? __('Waiting for your device…') : __('Register passkey on this device') }}
+                </flux:button>
+            @endif
+
+            @if ($passkeyEnrollmentMessage)
+                <p class="mt-3 text-sm text-green-700 dark:text-green-300" role="status">
+                    {{ $passkeyEnrollmentMessage }}
+                </p>
+            @endif
+
+            @if ($passkeyEnrollmentError)
+                <p class="mt-3 text-sm text-red-700 dark:text-red-300" role="alert">
+                    {{ $passkeyEnrollmentError }}
+                </p>
+            @endif
+        </div>
     </div>
 
     @if (Route::has('register'))
@@ -357,6 +759,45 @@ new #[Layout('components.layouts.auth')] class extends Component {
                 $wire.handleFingerprintLoginFailure('Security error. Make sure you are using HTTPS or localhost.');
             } else {
                 $wire.handleFingerprintLoginFailure('Fingerprint login failed: ' + error.message);
+            }
+        }
+    });
+
+    Livewire.on('webauthn-enrollment-start', async ({ options }) => {
+        try {
+            if (!window.PublicKeyCredential || !navigator.credentials?.create) {
+                $wire.handlePasskeyEnrollmentFailure('This browser does not support passkey registration.');
+                return;
+            }
+
+            options.publicKey.challenge = base64UrlToArrayBuffer(options.publicKey.challenge);
+            options.publicKey.user.id = base64UrlToArrayBuffer(options.publicKey.user.id);
+
+            if (options.publicKey.excludeCredentials) {
+                options.publicKey.excludeCredentials.forEach(credential => {
+                    credential.id = base64UrlToArrayBuffer(credential.id);
+                });
+            }
+
+            $wire.passkeyEnrollmentBrowserPromptStarted();
+            const credential = await navigator.credentials.create({ publicKey: options.publicKey });
+
+            if (!credential) {
+                $wire.handlePasskeyEnrollmentFailure('The authenticator did not return a passkey.');
+                return;
+            }
+
+            await $wire.completePasskeyEnrollment(
+                arrayBufferToBase64(credential.response.clientDataJSON),
+                arrayBufferToBase64(credential.response.attestationObject),
+            );
+        } catch (error) {
+            if (error.name === 'NotAllowedError') {
+                $wire.handlePasskeyEnrollmentFailure('Passkey setup was cancelled or timed out. Please try again.');
+            } else if (error.name === 'SecurityError') {
+                $wire.handlePasskeyEnrollmentFailure('Security error. Make sure you are using HTTPS or localhost.');
+            } else {
+                $wire.handlePasskeyEnrollmentFailure('Passkey setup failed: ' + error.message);
             }
         }
     });

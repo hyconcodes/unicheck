@@ -1,10 +1,13 @@
 <?php
 
 use App\Models\User;
+use App\Mail\PasskeyEnrollmentCode;
 use App\Services\WebauthnService;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Laravel\Fortify\Features;
 use Livewire\Volt\Volt as LivewireVolt;
+use Spatie\Permission\Models\Role;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
@@ -14,7 +17,7 @@ test('login screen can be rendered', function () {
     $response
         ->assertStatus(200)
         ->assertSee('Use fingerprint to sign in')
-        ->assertSee('register this device from the attendance screen');
+        ->assertSee('verify your student email below to register a passkey');
 });
 
 test('fingerprint login requests a discoverable credential without an allow list', function () {
@@ -89,6 +92,97 @@ test('users can start fingerprint login without entering an email or password', 
             && !empty($context['attempt_id'])
         )
         ->once();
+});
+
+test('eligible students can verify email and register a passkey from the login screen', function () {
+    Mail::fake();
+
+    $user = User::factory()->withoutTwoFactor()->create();
+    $user->assignRole(Role::findOrCreate('student', 'web'));
+    $code = null;
+
+    Mail::assertNothingSent();
+
+    $service = Mockery::mock(WebauthnService::class);
+    $service->shouldReceive('getRegistrationOptions')
+        ->once()
+        ->with(Mockery::on(fn (User $candidate) => $candidate->id === $user->id), 'webauthn_enrollment_challenge')
+        ->andReturn(['publicKey' => ['challenge' => 'test-challenge']]);
+    $service->shouldReceive('verifyRegistration')
+        ->once()
+        ->with(
+            Mockery::on(fn (User $candidate) => $candidate->id === $user->id),
+            Mockery::type('object'),
+            'webauthn_enrollment_challenge'
+        )
+        ->andReturn(true);
+
+    $this->app->instance(WebauthnService::class, $service);
+
+    $component = LivewireVolt::test('auth.login')
+        ->set('email', $user->email)
+        ->call('requestPasskeyEnrollmentCode')
+        ->assertHasNoErrors()
+        ->assertSet('passkeyEnrollmentCodeSent', true)
+        ->assertSee('If an eligible student account matches this email');
+
+    Mail::assertSent(PasskeyEnrollmentCode::class, function (PasskeyEnrollmentCode $mail) use ($user, &$code): bool {
+        $code = $mail->code;
+
+        return $mail->hasTo($user->email);
+    });
+
+    expect($code)->toMatch('/^\d{6}$/');
+
+    $component
+        ->set('passkeyEnrollmentCode', $code)
+        ->call('verifyPasskeyEnrollmentCode')
+        ->assertHasNoErrors()
+        ->assertSet('passkeyEnrollmentVerified', true)
+        ->call('startPasskeyEnrollment')
+        ->assertDispatched('webauthn-enrollment-start', function (string $event, array $params): bool {
+            return $event === 'webauthn-enrollment-start'
+                && $params['options']['publicKey']['challenge'] === 'test-challenge';
+        })
+        ->call('completePasskeyEnrollment', 'client-data', 'attestation')
+        ->assertRedirect(
+            Features::canManageTwoFactorAuthentication()
+                ? route('two-factor.show')
+                : route('dashboard', absolute: false)
+        );
+
+    $this->assertAuthenticatedAs($user);
+});
+
+test('passkey setup code requests are generic for accounts that cannot enroll', function () {
+    Mail::fake();
+
+    $response = LivewireVolt::test('auth.login')
+        ->set('email', 'unknown@example.com')
+        ->call('requestPasskeyEnrollmentCode')
+        ->assertHasNoErrors()
+        ->assertSee('If an eligible student account matches this email');
+
+    Mail::assertNothingSent();
+
+    expect(session('passkey_enrollment_pending'))->toBeNull();
+});
+
+test('invalid passkey setup codes do not authorize device registration', function () {
+    Mail::fake();
+
+    $user = User::factory()->create();
+    $user->assignRole(Role::findOrCreate('student', 'web'));
+
+    LivewireVolt::test('auth.login')
+        ->set('email', $user->email)
+        ->call('requestPasskeyEnrollmentCode')
+        ->set('passkeyEnrollmentCode', '000000')
+        ->call('verifyPasskeyEnrollmentCode')
+        ->assertSet('passkeyEnrollmentVerified', false)
+        ->assertSet('passkeyEnrollmentError', 'That code is invalid or expired. Request a new code and try again.');
+
+    expect(session('passkey_enrollment_user_id'))->toBeNull();
 });
 
 test('fingerprint login identifies and authenticates the account from the verified credential', function () {
