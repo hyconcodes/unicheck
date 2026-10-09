@@ -13,30 +13,40 @@ use Livewire\Volt\Component;
 new #[Layout('components.layouts.auth')] class extends Component {
     public string $name = '';
     public string $email = '';
+    public string $matric_no = '';
     public string $password = '';
     public string $password_confirmation = '';
     public string $department_id = '';
     public string $level = '';
 
+    public function updatedEmail(string $email): void
+    {
+        if (preg_match('/^[a-z]+\.(\d+)@bouesti\.edu\.ng$/i', trim($email), $matches)) {
+            $this->matric_no = $matches[1];
+        }
+    }
+
     public function register(): void
     {
+        if (preg_match('/^[a-z]+\.(\d+)@bouesti\.edu\.ng$/i', trim($this->email), $matches)) {
+            $this->matric_no = $matches[1];
+        }
+
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class, 'regex:/^[a-zA-Z]+\.[0-9]+@bouesti\.edu\.ng$/'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class, 'regex:/^(?:[a-z]+\.[0-9]+@bouesti\.edu\.ng|[a-z0-9._%+-]+@gmail\.com)$/i'],
+            'matric_no' => ['required', 'string', 'max:255', 'unique:' . User::class . ',matric_no'],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
             'department_id' => ['required', 'exists:departments,id'],
             'level' => ['required', 'in:100,200,300,400,500,600'],
         ], [
-            'email.regex' => 'Email must be in the format: lastname.matric_no@bouesti.edu.ng',
+            'email.regex' => 'Use your school email (lastname.matric_no@bouesti.edu.ng) or a Gmail address.',
+            'matric_no.required' => 'Enter your matric number. It is filled automatically for school email addresses.',
             'department_id.required' => 'Please select your department.',
             'department_id.exists' => 'Selected department is invalid.',
             'level.required' => 'Please select your level.',
             'level.in' => 'Level must be between 100 and 600.',
         ]);
-
-        // Extract matric_no from email (number after the lastname)
-        preg_match('/\.([0-9]+)@/', $validated['email'], $matches);
-        $validated['matric_no'] = $matches[1] ?? '';
 
         $validated['password'] = Hash::make($validated['password']);
         
@@ -94,13 +104,25 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
         <!-- Email Address -->
         <flux:input
-            wire:model="email"
+            wire:model.blur="email"
             :label="__('Email address')"
             type="email"
             required
             autocomplete="email"
-            placeholder="lastname.matricno@bouesti.edu.ng"
+            placeholder="lastname.matricno@bouesti.edu.ng or name@gmail.com"
         />
+
+        <!-- Matric Number -->
+        <flux:input
+            wire:model="matric_no"
+            :label="__('Matric number')"
+            type="text"
+            autocomplete="off"
+            placeholder="Your matric number"
+        />
+        <p class="-mt-4 text-sm text-zinc-500 dark:text-zinc-400">
+            {{ __('School email addresses fill this in automatically. If you use Gmail, enter your matric number here.') }}
+        </p>
 
         <!-- Department -->
         <flux:select

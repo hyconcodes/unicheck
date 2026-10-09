@@ -95,7 +95,9 @@ test('users can start fingerprint login without entering an email or password', 
 });
 
 test('eligible students can verify email and register a passkey from the login screen', function () {
+    config(['mail.default' => 'smtp']);
     Mail::fake();
+    Log::spy();
 
     $user = User::factory()->withoutTwoFactor()->create();
     $user->assignRole(Role::findOrCreate('student', 'web'));
@@ -124,7 +126,7 @@ test('eligible students can verify email and register a passkey from the login s
         ->call('requestPasskeyEnrollmentCode')
         ->assertHasNoErrors()
         ->assertSet('passkeyEnrollmentCodeSent', true)
-        ->assertSee('If an eligible student account matches this email');
+        ->assertSee('A one-time code was sent to your email');
 
     Mail::assertSent(PasskeyEnrollmentCode::class, function (PasskeyEnrollmentCode $mail) use ($user, &$code): bool {
         $code = $mail->code;
@@ -152,23 +154,96 @@ test('eligible students can verify email and register a passkey from the login s
         );
 
     $this->assertAuthenticatedAs($user);
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn (string $message, array $context) =>
+            $message === 'Passkey enrollment: attempting one-time code email delivery.'
+            && $context['event'] === 'passkey_enrollment_email_delivery_started'
+            && $context['transport'] === 'smtp'
+        )
+        ->once();
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn (string $message, array $context) =>
+            $message === 'Passkey enrollment: one-time code email accepted by the configured transport.'
+            && $context['event'] === 'passkey_enrollment_email_delivery_completed'
+            && $context['transport'] === 'smtp'
+        )
+        ->once();
 });
 
-test('passkey setup code requests are generic for accounts that cannot enroll', function () {
+test('passkey setup does not send a one-time code through log-only mail transports', function () {
+    config(['mail.default' => 'log']);
+    Mail::fake();
+    Log::spy();
+
+    LivewireVolt::test('auth.login')
+        ->set('email', 'student@gmail.com')
+        ->call('requestPasskeyEnrollmentCode')
+        ->assertSet('passkeyEnrollmentCodeSent', false)
+        ->assertSet('passkeyEnrollmentError', 'Email delivery is not configured on this server. Please contact support.');
+
+    Mail::assertNothingSent();
+    Log::shouldHaveReceived('error')
+        ->withArgs(fn (string $message, array $context) =>
+            $context['event'] === 'passkey_enrollment_email_delivery_blocked'
+            && $context['transport'] === 'log'
+        )
+        ->once();
+});
+
+test('passkey setup emails any valid address but requires a student account to enroll', function () {
+    config(['mail.default' => 'smtp']);
     Mail::fake();
 
+    $code = null;
     $response = LivewireVolt::test('auth.login')
         ->set('email', 'unknown@example.com')
         ->call('requestPasskeyEnrollmentCode')
         ->assertHasNoErrors()
-        ->assertSee('If an eligible student account matches this email');
+        ->assertSet('passkeyEnrollmentCodeSent', true)
+        ->assertSee('A one-time code was sent to your email');
 
-    Mail::assertNothingSent();
+    Mail::assertSent(PasskeyEnrollmentCode::class, function (PasskeyEnrollmentCode $mail) use (&$code): bool {
+        $code = $mail->code;
 
-    expect(session('passkey_enrollment_pending'))->toBeNull();
+        return $mail->hasTo('unknown@example.com');
+    });
+
+    $response
+        ->set('passkeyEnrollmentCode', $code)
+        ->call('verifyPasskeyEnrollmentCode')
+        ->assertSet('passkeyEnrollmentVerified', false)
+        ->assertSet('passkeyEnrollmentError', 'The email code is valid, but no student account is associated with this address. Create a student account first, then request a new code.');
+});
+
+test('email code can verify an unverified student account', function () {
+    config(['mail.default' => 'smtp']);
+    Mail::fake();
+
+    $user = User::factory()->unverified()->withoutTwoFactor()->create();
+    $user->assignRole(Role::findOrCreate('student', 'web'));
+    $code = null;
+
+    $component = LivewireVolt::test('auth.login')
+        ->set('email', $user->email)
+        ->call('requestPasskeyEnrollmentCode');
+
+    Mail::assertSent(PasskeyEnrollmentCode::class, function (PasskeyEnrollmentCode $mail) use ($user, &$code): bool {
+        $code = $mail->code;
+
+        return $mail->hasTo($user->email);
+    });
+
+    $component
+        ->set('passkeyEnrollmentCode', $code)
+        ->call('verifyPasskeyEnrollmentCode')
+        ->assertSet('passkeyEnrollmentVerified', true);
+
+    expect($user->fresh()->email_verified_at)->not->toBeNull();
 });
 
 test('invalid passkey setup codes do not authorize device registration', function () {
+    config(['mail.default' => 'smtp']);
     Mail::fake();
 
     $user = User::factory()->create();

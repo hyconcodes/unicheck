@@ -181,7 +181,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
         $this->passkeyEnrollmentError = '';
         $this->passkeyEnrollmentMessage = '';
-        $this->passkeyEnrollmentCodeSent = true;
+        $this->passkeyEnrollmentCodeSent = false;
         $this->passkeyEnrollmentVerified = false;
         $this->passkeyEnrollmentCode = '';
         Session::forget([
@@ -194,48 +194,82 @@ new #[Layout('components.layouts.auth')] class extends Component {
         RateLimiter::hit($emailKey, 600);
         RateLimiter::hit($ipKey, 3600);
 
+        $mailerName = (string) config('mail.default', 'unknown');
+        $mailerConfig = (array) config("mail.mailers.{$mailerName}", []);
+        $transport = (string) ($mailerConfig['transport'] ?? $mailerName);
+        $mailersThatLogContents = in_array($transport, ['log', 'array'], true);
+
+        foreach ($mailerConfig['mailers'] ?? [] as $configuredMailer) {
+            $configuredTransport = (string) config(
+                "mail.mailers.{$configuredMailer}.transport",
+                $configuredMailer,
+            );
+            $mailersThatLogContents = $mailersThatLogContents
+                || in_array($configuredTransport, ['log', 'array'], true);
+        }
+
+        if ($mailersThatLogContents) {
+            Log::error('Passkey enrollment email delivery is disabled because the configured mail transport only logs or stores messages.', [
+                'event' => 'passkey_enrollment_email_delivery_blocked',
+                'attempt_id' => $attemptId,
+                'mailer' => $mailerName,
+                'transport' => $transport,
+            ]);
+
+            $this->passkeyEnrollmentError = 'Email delivery is not configured on this server. Please contact support.';
+            return;
+        }
+
         $user = User::query()
             ->whereRaw('LOWER(email) = ?', [$email])
             ->first();
 
-        if ($user && $user->email_verified_at && $user->isStudent()) {
-            $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-            Session::put('passkey_enrollment_pending', [
-                'user_id' => $user->id,
-                'code_hash' => Hash::make($code),
-                'expires_at' => now()->addMinutes(10)->timestamp,
+        Session::put('passkey_enrollment_pending', [
+            'email' => $email,
+            'user_id' => $user?->id,
+            'code_hash' => Hash::make($code),
+            'expires_at' => now()->addMinutes(10)->timestamp,
+            'attempt_id' => $attemptId,
+        ]);
+
+        try {
+            Log::info('Passkey enrollment: attempting one-time code email delivery.', [
+                'event' => 'passkey_enrollment_email_delivery_started',
                 'attempt_id' => $attemptId,
+                'user_id' => $user?->id,
+                'mailer' => $mailerName,
+                'transport' => $transport,
             ]);
 
-            try {
-                Mail::to($user->email)->send(new PasskeyEnrollmentCode($code));
+            Mail::to($email)->send(new PasskeyEnrollmentCode($code));
 
-                Log::info('Passkey enrollment: one-time code sent to verified student email.', [
-                    'event' => 'passkey_enrollment_code_sent',
-                    'attempt_id' => $attemptId,
-                    'user_id' => $user->id,
-                ]);
-            } catch (\Throwable $exception) {
-                Session::forget('passkey_enrollment_pending');
-                RateLimiter::clear($emailKey);
+            $this->passkeyEnrollmentCodeSent = true;
+            $this->passkeyEnrollmentMessage = 'A one-time code was sent to your email. Enter it below; an existing student account is required before a passkey can be registered.';
 
-                Log::error('Passkey enrollment: one-time code email could not be sent.', [
-                    'event' => 'passkey_enrollment_email_failed',
-                    'attempt_id' => $attemptId,
-                    'user_id' => $user->id,
-                    'exception' => $exception::class,
-                    'reason' => $exception->getMessage(),
-                ]);
-            }
-        } else {
-            Log::info('Passkey enrollment: code requested for an ineligible account.', [
-                'event' => 'passkey_enrollment_code_not_sent',
+            Log::info('Passkey enrollment: one-time code email accepted by the configured transport.', [
+                'event' => 'passkey_enrollment_email_delivery_completed',
                 'attempt_id' => $attemptId,
+                'user_id' => $user?->id,
+                'mailer' => $mailerName,
+                'transport' => $transport,
+            ]);
+        } catch (\Throwable $exception) {
+            Session::forget('passkey_enrollment_pending');
+
+            $this->passkeyEnrollmentError = 'We could not send the setup code. Please try again later or contact support.';
+
+            Log::error('Passkey enrollment: one-time code email delivery failed.', [
+                'event' => 'passkey_enrollment_email_failed',
+                'attempt_id' => $attemptId,
+                'user_id' => $user?->id,
+                'mailer' => $mailerName,
+                'transport' => $transport,
+                'exception' => $exception::class,
+                'reason' => $exception->getMessage(),
             ]);
         }
-
-        $this->passkeyEnrollmentMessage = 'If an eligible student account matches this email, a setup code will be sent. Check your inbox and spam folder.';
     }
 
     public function verifyPasskeyEnrollmentCode(): void
@@ -269,7 +303,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
         if (
             !is_array($pending)
-            || !isset($pending['user_id'], $pending['code_hash'], $pending['expires_at'])
+            || !isset($pending['email'], $pending['code_hash'], $pending['expires_at'])
             || $pending['expires_at'] < now()->timestamp
             || !Hash::check($this->passkeyEnrollmentCode, $pending['code_hash'])
         ) {
@@ -293,18 +327,31 @@ new #[Layout('components.layouts.auth')] class extends Component {
             return;
         }
 
-        $user = User::find($pending['user_id']);
-        if (!$user || !$user->email_verified_at || !$user->isStudent()) {
-            Session::forget('passkey_enrollment_pending');
-            $this->passkeyEnrollmentError = 'This account cannot enroll a passkey. Use the standard sign-in option or contact support.';
+        $user = !empty($pending['user_id'])
+            ? User::find($pending['user_id'])
+            : User::query()->whereRaw('LOWER(email) = ?', [$pending['email']])->first();
 
-            Log::warning('Passkey enrollment: account was no longer eligible after code verification.', [
-                'event' => 'passkey_enrollment_account_ineligible',
+        if (!$user || !$user->isStudent()) {
+            Session::forget('passkey_enrollment_pending');
+            $this->passkeyEnrollmentError = 'The email code is valid, but no student account is associated with this address. Create a student account first, then request a new code.';
+
+            Log::warning('Passkey enrollment: verified email has no student account for passkey enrollment.', [
+                'event' => 'passkey_enrollment_student_account_missing',
                 'attempt_id' => $attemptId,
                 'user_id' => $user?->id,
             ]);
 
             return;
+        }
+
+        if (!$user->email_verified_at) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+
+            Log::info('Passkey enrollment: email ownership verified by one-time code.', [
+                'event' => 'passkey_enrollment_email_marked_verified',
+                'attempt_id' => $attemptId,
+                'user_id' => $user->id,
+            ]);
         }
 
         RateLimiter::clear($verifyKey);

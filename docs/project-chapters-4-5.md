@@ -283,7 +283,7 @@ $signatureCounter = $this->webAuthn->getSignatureCounter();
 $credential->markUsed($signatureCounter);
 ```
 
-Students whose passkey is unavailable on their current device can request a short-lived verification code at the login screen. After verifying the code sent to their already-verified student email, they can register a discoverable passkey on that device. The email code authorizes enrollment only; subsequent sign-ins use the passkey, without email/password fallback. Enrollment codes are hashed in the session, expire after ten minutes, and are protected by per-email, per-IP, and verification-attempt rate limits.
+Students whose passkey is unavailable on their current device can request a short-lived verification code at the login screen. The code is emailed to any valid address entered, regardless of whether an account is found; passkey enrollment still requires an existing student account. A student can use the code to verify an unverified email on their account before enrolling. Student accounts may use either the existing institution email format or Gmail; Gmail registrants enter their matric number separately. The email code authorizes enrollment only; subsequent sign-ins use the passkey, without email/password fallback. Enrollment codes are hashed in the session, expire after ten minutes, and are protected by per-email, per-IP, and verification-attempt rate limits. The application blocks log-only and in-memory mail transports for these codes; a real SMTP or API mail transport must be configured in the deployment environment for delivery.
 
 ### A.3 Role and Permission Based Access
 
