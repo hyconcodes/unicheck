@@ -8,6 +8,8 @@ use App\Models\WebauthnCredential;
 use App\Services\WebauthnService;
 use App\Services\AttendanceLogService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class extends Component {
 
@@ -130,12 +132,31 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
             return;
         }
 
+        Log::info('Fingerprint attendance: student started credential registration.', [
+            'event' => 'fingerprint_attendance_registration_started',
+            'user_id' => $user->id,
+            'class_id' => $this->class->id,
+        ]);
+
         $this->isRegistering = true;
         $this->biometricError = '';
 
-        $options = $webauthnService->getRegistrationOptions($user);
+        try {
+            $options = $webauthnService->getRegistrationOptions($user);
 
-        $this->dispatch('webauthn-register-start', options: $options);
+            $this->dispatch('webauthn-register-start', options: $options);
+        } catch (\Throwable $exception) {
+            $this->isRegistering = false;
+            $this->biometricError = 'Could not start fingerprint registration. Please try again.';
+
+            Log::error('Fingerprint attendance: credential registration could not be started.', [
+                'event' => 'fingerprint_attendance_registration_start_failed',
+                'user_id' => $user->id,
+                'class_id' => $this->class->id,
+                'exception' => $exception::class,
+                'reason' => $exception->getMessage(),
+            ]);
+        }
     }
 
     public function handleRegistrationComplete(WebauthnService $webauthnService, string $clientDataJSON, string $attestationObject): void
@@ -182,11 +203,19 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
 
     public function handleRegistrationFailed(string $error): void
     {
+        $safeError = Str::limit(str_replace(["\r", "\n"], ' ', $error), 250);
         $this->biometricError = $error;
         $this->isRegistering = false;
 
+        Log::warning('Fingerprint attendance: browser did not complete credential registration.', [
+            'event' => 'fingerprint_attendance_registration_browser_failed',
+            'user_id' => Auth::id(),
+            'class_id' => $this->class->id,
+            'reason' => $safeError,
+        ]);
+
         $this->dispatch('log-biometric-failure', [
-            'reason' => $error,
+            'reason' => $safeError,
             'class_id' => $this->class->id,
         ]);
     }
@@ -203,15 +232,42 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
 
         if (!$webauthnService->userHasCredentials($user)) {
             $this->biometricError = 'No fingerprint registered. Please register first.';
+
+            Log::warning('Fingerprint attendance: authentication requested without a registered credential.', [
+                'event' => 'fingerprint_attendance_authentication_failed',
+                'user_id' => $user->id,
+                'class_id' => $this->class->id,
+                'reason' => 'credential_not_registered',
+            ]);
+
             return;
         }
+
+        Log::info('Fingerprint attendance: student started biometric verification.', [
+            'event' => 'fingerprint_attendance_authentication_started',
+            'user_id' => $user->id,
+            'class_id' => $this->class->id,
+        ]);
 
         $this->isAuthenticating = true;
         $this->biometricError = '';
 
-        $options = $webauthnService->getAuthenticationOptions($user);
+        try {
+            $options = $webauthnService->getAuthenticationOptions($user);
 
-        $this->dispatch('webauthn-authenticate-start', options: $options);
+            $this->dispatch('webauthn-authenticate-start', options: $options);
+        } catch (\Throwable $exception) {
+            $this->isAuthenticating = false;
+            $this->biometricError = 'Could not start fingerprint verification. Please try again.';
+
+            Log::error('Fingerprint attendance: biometric verification could not be started.', [
+                'event' => 'fingerprint_attendance_authentication_start_failed',
+                'user_id' => $user->id,
+                'class_id' => $this->class->id,
+                'exception' => $exception::class,
+                'reason' => $exception->getMessage(),
+            ]);
+        }
     }
 
     public function handleAuthenticationComplete(
@@ -264,11 +320,19 @@ new #[Layout('components.layouts.app', ['title' => 'Mark Attendance'])] class ex
 
     public function handleAuthenticationFailed(string $error): void
     {
+        $safeError = Str::limit(str_replace(["\r", "\n"], ' ', $error), 250);
         $this->biometricError = $error;
         $this->isAuthenticating = false;
 
+        Log::warning('Fingerprint attendance: browser did not complete biometric verification.', [
+            'event' => 'fingerprint_attendance_authentication_browser_failed',
+            'user_id' => Auth::id(),
+            'class_id' => $this->class->id,
+            'reason' => $safeError,
+        ]);
+
         $this->dispatch('log-biometric-failure', [
-            'reason' => $error,
+            'reason' => $safeError,
             'class_id' => $this->class->id,
         ]);
     }
